@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>Leguna Mama Formula F1</title>
+  <meta name="description" content="ফার্মগেট থেকে মোহাম্মদপুর বাসস্ট্যান্ড — লেগুনা মামার রেস!" />
+  <meta name="theme-color" content="#e6007e" />
+  <meta property="og:title" content="লেগুনা মামা — ফর্মুলা F1" />
+  <meta property="og:description" content="ফার্মগেট থেকে মোহাম্মদপুর কত সেকেন্ডে পৌঁছাইতে পারবা?" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@500;800&display=swap" />
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      /* Rickshaw-art side panels fill whatever space the 9:16 game leaves free */
+      background-color: #e6007e;
+      background-image:
+        radial-gradient(circle at 50% 50%, #ffd400 0 9px, transparent 10px),
+        radial-gradient(circle at 50% 50%, #00a6a6 0 18px, transparent 19px),
+        radial-gradient(circle at 0 0, #1f9e4a 0 7px, transparent 8px),
+        radial-gradient(circle at 100% 100%, #1f9e4a 0 7px, transparent 8px),
+        repeating-linear-gradient(45deg, transparent 0 22px, rgba(255, 243, 214, 0.18) 22px 26px);
+      background-size: 72px 72px;
+    }
+    #game {
+      position: fixed;
+      inset: 0;
+    }
+    #game canvas {
+      touch-action: none;
+      box-shadow: 0 0 0 6px #ffd400, 0 0 0 12px #1a1a2e, 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

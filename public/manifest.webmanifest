@@ -1,0 +1,14 @@
+{
+  "name": "Leguna Mama Formula F1",
+  "short_name": "Leguna Mama",
+  "description": "ফার্মগেট থেকে মোহাম্মদপুর — লেগুনা রেস!",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#1a1a2e",
+  "theme_color": "#e6007e",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
