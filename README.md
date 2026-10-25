@@ -2,7 +2,7 @@
 
 A free, just-for-fun web game: drive a leguna from **Farmgate to Mohammadpur Bus Stand**, dodge rickshaws, buses, BRTC double-deckers, cows and waterlogging, pick up passengers, and share your time. Works the same on phones and desktop (fixed 9:16 layout, scaled to fit).
 
-Built with [Phaser 3.90](https://phaser.io) and Vite. All art and sounds are placeholders generated in code, so the whole game is ~330 KB gzipped.
+Built with [Phaser 3.90](https://phaser.io) and Vite. Nearly all art and sounds are placeholders generated in code (the exceptions are the leguna's side-view art and its recorded engine), so the whole game is ~410 KB gzipped.
 
 ## Run locally
 
@@ -63,7 +63,9 @@ The BRTC double-decker (`brtc`, Manik Mia Avenue and Asad Gate only) has the ful
 | `pothole`, `speedbreaker`, `speedbreaker_fast` | Hit a pothole, went over a speed breaker (`_fast`: took it fast and flew) |
 | `red_light` | Crossed the stop line on red: fined |
 
-**Engine and street sounds** are synthesised continuously in `src/audio/sfx.js`: the engine rumble follows the leguna's speed (silent when stopped), and each stretch in `src/config.js` has an `ambience` bed. `hum`, `wind` and `rain` are steady layers (0–1 loudness); `horns`, `bells`, `chatter`, `birds` and `drips` are one-off sounds (average number per second):
+**Engine sound** is a recording of a real leguna, `public/audio/engine/leguna-engine.mp3` (3.5 s seamless loop, mono 64 kbps, 30 KB), looped in `src/audio/sfx.js`. Its pitch and volume follow the speed: idling at 0.8× pitch when stopped, 1× at cruising and 1.25× at Manik Mia Avenue's top speed, a little quieter on the brake, and always under the dhol and voice clips. Until it has decoded (or if it fails to load) a synthesised rumble stands in. To use a new recording, run `tools/enhance_engine.py` on it (usage at the top of the script): it cleans it up (high-pass, low-mid body, hiss cut, light compression, normalising), picks the steadiest stretch and makes the loop. If you change `--length`, update `ENGINE_LOOP_LENGTH` in `sfx.js`, and bump `CACHE` in `public/sw.js` so installed copies fetch the new file.
+
+**Street sounds** are synthesised continuously in `src/audio/sfx.js`: each stretch in `src/config.js` has an `ambience` bed. `hum`, `wind` and `rain` are steady layers (0–1 loudness); `horns`, `bells`, `chatter`, `birds` and `drips` are one-off sounds (average number per second):
 
 ```js
 ambience: { hum: 0.4, rain: 0.8, drips: 0.8, bells: 0.2 }, // Asad Avenue
@@ -112,6 +114,8 @@ Potholes and open manholes come from the random spawn mix (`spawn` weights per s
 | `src/road.js` | Draws the bending road every frame (asphalt, kerbs, lane dashes, pavements, speed streaks) |
 | `src/scenes/GameScene.js` | The race: spawning, steering, collisions, meme popups, HUD |
 | `src/art/textures.js` | Placeholder rickshaw-art sprites drawn in code; replace with real images later |
-| `src/audio/sfx.js` | Synthesised sound effects, the dhol loop, engine rumble, street ambience and vibration |
+| `src/audio/sfx.js` | Synthesised sound effects, the dhol loop, the engine (recorded loop, synth fallback), street ambience and vibration |
+| `public/audio/engine/leguna-engine.mp3` | The leguna's engine loop, made by `tools/enhance_engine.py` from a phone recording |
+| `tools/` | Asset scripts: `cutout.py` (vehicle art cut-outs), `enhance_engine.py` (engine recording to game loop) |
 | `src/i18n.js` | Bangla / English strings |
 | `src/share.js` | Score-card image for Facebook / Messenger sharing |

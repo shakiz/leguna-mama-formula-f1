@@ -765,7 +765,7 @@ export default class GameScene extends Phaser.Scene {
     this.place(this.player);
     this.road.streaks = Phaser.Math.Clamp((this.speed - STREAK_FROM) / (STREAK_FULL - STREAK_FROM), 0, 1);
     this.road.draw();
-    setEngine(this.speed / BASE_SPEED);
+    setEngine(this.speed / BASE_SPEED, this.braking && !this.finished);
 
     // Lean the view into the bend under the leguna, turning with the road like the driver's head
     const lean = Phaser.Math.Clamp(angleAt(this.distance) * LEAN, -MAX_LEAN, MAX_LEAN);
