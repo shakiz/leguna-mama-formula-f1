@@ -15,6 +15,9 @@ const STR = {
     en: 'Tap or swipe left / right · swipe down = brake\nKeyboard: ← → or A / D · brake ↓ or S',
   },
   tip: { bn: 'যাত্রী তুলেন, গর্ত-পানি-গরু এড়ান!', en: 'Pick up passengers, dodge puddles and cows!' },
+  // On-screen hint the first time the light turns red in a run (touch, keyboard)
+  brakeHint: { bn: 'নিচে সোয়াইপ = ব্রেক ⬇️', en: 'Swipe down = brake ⬇️' },
+  brakeHintKeys: { bn: '↓ বা S চেপে ধরেন = ব্রেক', en: 'Hold ↓ or S = brake' },
   best: { bn: 'সেরা সময়', en: 'Best time' },
   time: { bn: 'সময়', en: 'Time' },
   fare: { bn: 'ভাড়া', en: 'Fare' },

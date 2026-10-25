@@ -1,5 +1,6 @@
 // Placeholder sounds synthesised with Web Audio: zero download. Swap in recorded clips via memes.json `audio`.
 // The engine is the exception: a recorded loop, with a synth stand-in (see the engine section).
+// Recorded clips (playClip) are voices: one plays at a time and the music, ambience and engine duck under it.
 import { load, save } from '../storage.js';
 
 let ctx = null;
@@ -8,6 +9,12 @@ let muted = load('muted', false);
 let noiseBuf = null;
 // Recorded clips: url -> { data: Promise<ArrayBuffer|null>, buffer: AudioBuffer|null }
 const clips = new Map();
+// Voice clips playing right now (every playClip), each { src, g }
+const voices = new Set();
+// Ducking stages between the beds and master: music, ambience and engine buses plug into these, so
+// ducking never fights the buses' own fades and speed ramps
+let duck = null;
+const DUCK = { music: 0.35, ambience: 0.35, engine: 0.7 }; // bed levels while a voice talks
 
 export function unlockAudio() {
   if (!ctx) {
@@ -17,6 +24,8 @@ export function unlockAudio() {
     master = ctx.createGain();
     master.gain.value = muted ? 0 : 0.7;
     master.connect(ctx.destination);
+    duck = {};
+    for (const k of Object.keys(DUCK)) duck[k] = gainNode(1, master);
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) ctx.suspend();
       else ctx.resume();
@@ -47,17 +56,40 @@ function decodeClip(entry) {
     .catch(() => {});
 }
 
-// Returns false when the clip is missing or not decoded yet, so the caller can fall back to a synth sound
+// Every clip played here is a voice: one at a time (a new one cuts off the last with a quick fade),
+// and the music, ambience and engine duck under it. Returns false when the clip is missing or not
+// decoded yet, so the caller can fall back to a synth sound.
 export function playClip(url, volume = 1) {
   const entry = clips.get(url);
   if (!ctx || muted || !entry?.buffer) return false;
+  const t = ctx.currentTime;
+  for (const v of voices) {
+    v.g.gain.setValueAtTime(v.g.gain.value, t);
+    v.g.gain.linearRampToValueAtTime(0, t + 0.06);
+    v.src.stop(t + 0.07);
+    voices.delete(v); // fading out: stop() it only once
+  }
   const src = ctx.createBufferSource();
   src.buffer = entry.buffer;
-  const g = ctx.createGain();
-  g.gain.value = volume;
-  src.connect(g).connect(master);
-  src.start();
+  const g = gainNode(volume, master);
+  src.connect(g);
+  const v = { src, g };
+  voices.add(v);
+  // Also fires when a newer voice stops this one; the beds come back only once nobody is talking
+  src.onended = () => {
+    voices.delete(v);
+    g.disconnect();
+    if (!voices.size) setDuck(false);
+  };
+  setDuck(true);
+  src.start(t);
   return true;
+}
+
+// Down over ~120 ms when a voice starts, back up over ~300 ms after the last one ends
+function setDuck(on) {
+  const t = ctx.currentTime;
+  for (const [k, level] of Object.entries(DUCK)) duck[k].gain.setTargetAtTime(on ? level : 1, t, on ? 0.04 : 0.1);
 }
 
 export const isMuted = () => muted;
@@ -244,6 +276,30 @@ const SFX = {
     tone('triangle', 1800, 4200, 0.5, 0.025);
     tone('square', 1480, 1400, 0.16, 0.06, 0.52);
   },
+  // VIP siren: a two-tone wail rising and falling, swelling in from behind and fading as it drives off
+  siren: () => {
+    const t = ctx.currentTime;
+    const dur = 4.4; // the VIP reaches the leguna ~2.2 s after the warning and is past it ~1.5 s later
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.001, t);
+    g.gain.exponentialRampToValueAtTime(0.11, t + 0.5);
+    g.gain.setValueAtTime(0.11, t + 3.2);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 2600;
+    f.connect(g).connect(master);
+    // Two voices a major third apart, so it reads as a siren rather than a single whistle
+    for (const [type, k] of [['sawtooth', 1], ['square', 1.26]]) {
+      const o = ctx.createOscillator();
+      o.type = type;
+      o.frequency.setValueAtTime(600 * k, t);
+      for (let w = 0, up = true; w < dur; w += 0.45, up = !up) o.frequency.linearRampToValueAtTime((up ? 980 : 600) * k, t + w + 0.45);
+      o.connect(f);
+      o.start(t);
+      o.stop(t + dur + 0.05);
+    }
+  },
   bonus: () => {
     tone('square', 1319, 1319, 0.06, 0.08);
     tone('square', 1760, 1760, 0.14, 0.08, 0.06);
@@ -264,7 +320,7 @@ export function startMusic(bpm = 112) {
   if (!ctx || musicTimer) return;
   musicBus = ctx.createGain();
   musicBus.gain.value = 0.35;
-  musicBus.connect(master);
+  musicBus.connect(duck.music);
   const stepDur = 60 / bpm / 4;
   let step = 0;
   let next = ctx.currentTime + 0.05;
@@ -353,7 +409,7 @@ export function preloadEngine() {
 
 export function startEngine() {
   if (!ctx || engine) return;
-  engine = { bus: gainNode(0, master), synth: null, rec: null, ratio: -1, braking: false };
+  engine = { bus: gainNode(0, duck.engine), synth: null, rec: null, ratio: -1, braking: false };
   if (!startRecordedEngine()) startSynthEngine();
 }
 
@@ -463,7 +519,7 @@ let ambience = null;
 export function setAmbience(cfg = {}) {
   if (!ctx) return;
   if (!ambience) {
-    const bus = gainNode(0.6, master);
+    const bus = gainNode(0.6, duck.ambience);
     const src = loopNoise();
     const layers = {};
     for (const [name, l] of Object.entries(LAYERS)) {
