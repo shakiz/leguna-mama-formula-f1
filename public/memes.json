@@ -269,6 +269,97 @@
     "brtc_honk": {
       "sfx": "airhorn",
       "cooldown": 1500
+    },
+    "spawn_bike": {
+      "sfx": "rev",
+      "chance": 0.35,
+      "cooldown": 2500
+    },
+    "spawn_tesla": {
+      "sfx": "ewhine",
+      "chance": 0.4,
+      "cooldown": 2500
+    },
+    "close_bike": {
+      "sfx": [
+        "bonus",
+        "rev"
+      ],
+      "cooldown": 600
+    },
+    "close_tesla": {
+      "sfx": [
+        "bonus",
+        "ewhine"
+      ],
+      "cooldown": 600
+    },
+    "closeturn_bike": {
+      "sfx": [
+        "bonus",
+        "whoosh",
+        "rev"
+      ],
+      "cooldown": 250
+    },
+    "closeturn_tesla": {
+      "sfx": [
+        "bonus",
+        "whoosh",
+        "ewhine"
+      ],
+      "cooldown": 250
+    },
+    "crash_bike": {
+      "sfx": [
+        "crash",
+        "rev"
+      ],
+      "vibrate": [
+        90,
+        50,
+        160
+      ]
+    },
+    "crash_tesla": {
+      "sfx": "crash",
+      "vibrate": [
+        90,
+        50,
+        160
+      ],
+      "chain": [
+        {
+          "event": "rickshaw_dhur",
+          "delay": 250
+        }
+      ]
+    },
+    "crash_rickshaw": {
+      "sfx": "crash",
+      "vibrate": [
+        90,
+        50,
+        160
+      ],
+      "chain": [
+        {
+          "event": "rickshaw_dhur",
+          "delay": 250
+        }
+      ]
+    },
+    "rickshaw_dhur": {
+      "audio": [
+        "audio/clips/dhur-beta.mp3"
+      ],
+      "cooldown": 3000
+    },
+    "pass_tesla": {
+      "audio": [
+        "audio/clips/assalamualaikum-boro-bhai.mp3"
+      ],
+      "cooldown": 10000
     }
   },
   "triggers": {
@@ -577,6 +668,84 @@
       {
         "bn": "দোতলা থেকে সবাই ভিডিও করতেসে 📱",
         "en": "The whole upper deck is filming this 📱"
+      }
+    ],
+    "close_bike": [
+      {
+        "bn": "বাইক তো কানের পাশ দিয়ে গেল! 🏍️",
+        "en": "That bike went right past my ear! 🏍️"
+      },
+      {
+        "bn": "হেলমেট কই ভাই?",
+        "en": "Where's your helmet, bhai?"
+      },
+      {
+        "bn": "পেছনের ভাই তো ঘুমায় গেসে! 😴",
+        "en": "The guy on the back has fallen asleep! 😴"
+      }
+    ],
+    "closeturn_bike": [
+      {
+        "bn": "বাইকার মামা উড়ে গেল! 🏍️",
+        "en": "The biker just flew past! 🏍️"
+      },
+      {
+        "bn": "হেলমেট কই ভাই?",
+        "en": "Where's your helmet, bhai?"
+      },
+      {
+        "bn": "ফুটপাত না পাইয়া রাস্তায় নামসে!",
+        "en": "Couldn't find a footpath, so he's on the road!"
+      }
+    ],
+    "close_tesla": [
+      {
+        "bn": "টেসলা মামা অটোপাইলটে! 🔋",
+        "en": "The Tesla's on autopilot! 🔋"
+      },
+      {
+        "bn": "চার্জ শেষ হইলে ঠেলা লাগবে!",
+        "en": "When the charge runs out, we'll have to push!"
+      }
+    ],
+    "closeturn_tesla": [
+      {
+        "bn": "টেসলা মামা অটোপাইলটে! 🔋",
+        "en": "The Tesla's on autopilot! 🔋"
+      },
+      {
+        "bn": "ইন্ডিকেটর ছাড়াই টার্ন!",
+        "en": "Turning without an indicator!"
+      },
+      {
+        "bn": "ইলন মাস্কও এই মডেল চিনে না 🔋",
+        "en": "Even Elon doesn't know this model 🔋"
+      }
+    ],
+    "crash_bike": [
+      {
+        "bn": "হেলমেট ছিল একজনের, ভাগ্য ভালো 🪖",
+        "en": "One helmet between the two of them. Lucky 🪖"
+      },
+      {
+        "bn": "বাইকার ভাই রাগ করসে, এখন ভিডিও করবে 📱",
+        "en": "The biker's angry. Now he's filming 📱"
+      }
+    ],
+    "crash_tesla": [
+      {
+        "bn": "টেসলার সাথে এক্সিডেন্ট! ইন্সুরেন্স কে দিবে? 🔋",
+        "en": "Crashed into a Tesla! Who pays the insurance? 🔋"
+      },
+      {
+        "bn": "অটোপাইলট ফেল! 🤖",
+        "en": "Autopilot failure! 🤖"
+      }
+    ],
+    "pass_tesla": [
+      {
+        "bn": "আসসালামু আলাইকুম বড় ভাই! 👋",
+        "en": "Assalamu alaikum, boro bhai! 👋"
       }
     ]
   }
