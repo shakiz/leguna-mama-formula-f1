@@ -1,5 +1,5 @@
 // Offline cache: network-first for the page and memes.json (so updates show up), cache-first for everything else
-const CACHE = 'leguna-v1';
+const CACHE = 'leguna-v2'; // bump whenever files in public/ change (audio clips, engine loop) so phones fetch them again
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => {
