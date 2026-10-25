@@ -1,8 +1,8 @@
 # লেগুনা মামা — Formula F1
 
-A free, just-for-fun web game: drive a leguna from **Farmgate to Mohammadpur Bus Stand**, dodge rickshaws, weaving motorbikes, swerving battery rickshaws, buses, BRTC double-deckers, cows and waterlogging, pick up passengers, and share your time. Works the same on phones and desktop (fixed 9:16 layout, scaled to fit).
+A free, just-for-fun web game: drive a leguna from **Farmgate to Mohammadpur Bus Stand**, dodge rickshaws, weaving motorbikes, swerving battery rickshaws, buses, BRTC double-deckers, VIP motorcades, cows and waterlogging, pick up passengers, and share your time. Works the same on phones and desktop (fixed 9:16 layout, scaled to fit).
 
-Built with [Phaser 3.90](https://phaser.io) and Vite. Nearly all art and sounds are placeholders generated in code (the exceptions are the leguna's side-view art, its recorded engine and a few voice clips), so the whole game is ~470 KB gzipped.
+Built with [Phaser 3.90](https://phaser.io) and Vite. Nearly all art and sounds are placeholders generated in code (the exceptions are the leguna's side-view art, its recorded engine and five voice clips), so the game itself is ~380 KB to download (gzipped code, art and `memes.json`), plus ~215 KB of audio fetched in the background (the 30 KB engine loop and 190 KB of voice clips). A careful run takes about 90–95 s.
 
 ## Run locally
 
@@ -49,34 +49,37 @@ Everything lives in `public/memes.json`; edit and push, no code changes needed.
 
 **Event names** follow `<event>_<vehicle>`. If a specific entry is missing, the general one is used: `close_cng` falls back to `close`, and `crash_bus` to `crash`.
 
-The BRTC double-decker (`brtc`, Manik Mia Avenue and Asad Gate only) has the full set: `spawn_brtc` sounds its deep `airhorn` now and then, `close_brtc` / `closeturn_brtc` add the horn and a diesel `rumble`, and `crash_brtc` is a heavier `bigcrash`; the closeturn and crash chain to `brtc_honk` (the air horn again).
+An event on cooldown skips its meme popup as well as its sound, even a forced one, so a voice line and its popup stay together.
 
-The motorbike (`bike`) and the battery rickshaw Dhaka calls a "Tesla" (`tesla`) change lanes (see [Lane changers](#lane-changers)). `spawn_bike` revs and pips (`rev`), `spawn_tesla` gives its tinny electric whine and horn (`ewhine`); both have their own `close_` / `closeturn_` memes. Two recorded voice clips live in `public/audio/clips/`:
+**Vehicles with their own sounds:**
 
-- `assalamualaikum-boro-bhai.mp3`: `pass_tesla`, when the leguna overtakes a Tesla (it goes from fully ahead to fully behind without a crash, in any lane). 10 s cooldown, no bonus.
-- `dhur-beta.mp3` ("Dhur beta, aita hoilo beta?"): `crash_tesla` and `crash_rickshaw` keep their crash sound and chain after 250 ms to `rickshaw_dhur`, which holds the clip. It is a separate event because an event whose clip plays skips its own `sfx`.
-
-An event on cooldown skips its meme popup as well as its sound, so a voice line and its popup stay together.
-
-**The VIP** (`vip`, mostly Manik Mia Avenue) is a black SUV with a small gold pennant on the bonnet and a flashing red/blue light bar. It comes from *behind*: a flashing `▲ 🚨 ▲` badge appears at the bottom of the screen in the lane it will use, and about a second later it drives up past the leguna, 250 px/s faster than cruising. Stay in that lane and it rear-ends you. Its events: `vip_spotted` when the warning starts (the voice clip `public/audio/clips/are-era-kara.mp3`, "আরে এরা কারা?", plus the helper's "পেছনে সাইরেন! সাইড দেন!" callout), which chains to `vip_siren` (the synth `siren` two-tone wail, a separate event so the clip and the siren both play); `close_vip` / `closeturn_vip` ("প্রটোকল মামা, প্রটোকল!"); `crash_vip` (`bigcrash`, "আপনি জানেন উনি কে?"); and `vip_gaveway` (+৳5) when you were in its lane at the warning and moved out in good time. Keep its memes about VIP protocol in traffic in general: no parties, flags, names or real people.
+- **BRTC double-decker** (`brtc`, Manik Mia Avenue and Asad Gate): `spawn_brtc` sounds its deep `airhorn` now and then, `close_brtc` / `closeturn_brtc` add the horn and a diesel `rumble`, and `crash_brtc` is a heavier `bigcrash`; the closeturn and crash chain to `brtc_honk` (the air horn again).
+- **Motorbike** (`bike`) and the battery rickshaw Dhaka calls a **"Tesla"** (`tesla`) change lanes (see [Lane changers](#lane-changers)). `spawn_bike` revs and pips (`rev`), `spawn_tesla` gives its tinny electric whine and horn (`ewhine`); both have their own `close_` / `closeturn_` / `crash_` memes. Overtaking a Tesla plays `pass_tesla`; crashing into a Tesla or a rickshaw chains to `rickshaw_dhur`.
+- **VIP car** (`vip`, see [The VIP](#the-vip)): `vip_spotted` when its warning starts (a voice clip plus the helper's "পেছনে সাইরেন! সাইড দেন!" callout) chains straight to `vip_siren` (the synth `siren`, a separate event so the clip and the siren both play); `close_vip` / `closeturn_vip`, `crash_vip` (`bigcrash`) and `vip_gaveway` (+৳5). Keep its memes about VIP protocol in traffic in general: no parties, flags, names or real people.
 
 | Event | When |
 |---|---|
-| `start`, `finish`, `newbest`, `stretch_<id>` | Run start, finish, new record, entering a route stretch. `finish` and `newbest` keep their `sting` and chain to `finish_voice` 250 ms later |
-| `finish_voice` | The finish voice line, "আজ চলে যাচ্ছি, কিন্তু যাচ্ছি না" (`audio/clips/aj-chole-jacchi.mp3`). A separate event because a clip on `finish` itself would replace the sting |
-| `speedup` | "খেলা হবে!" (`audio/clips/khela-hobe.mp3`, with a popup). Fires when the leguna is back above 90% of its target speed after a real slowdown (under 40% of cruising after a crash, braking or a red light, or a crawl through the flood), and 1.5 s into Manik Mia Avenue's speed bonus. Never off the start line or after the finish; 25 s `cooldown`, also applied to the popup. Thresholds: `SLOWED`, `CRUISING`, `SPEEDUP_DELAY` in `GameScene.js` |
+| `start`, `stretch_<id>` | Run start, entering a route stretch |
+| `finish`, `newbest` | Reached the bus stand / with a new record. Both keep their `sting` and chain to `finish_voice` 250 ms later |
+| `finish_voice` | The finish voice line (a separate event because a clip on `finish` itself would replace the sting) |
+| `speedup` | "খেলা হবে!": back above 90% of the target speed after a real slowdown (under 40% of cruising after a crash, braking or a red light, or a crawl through the flood), and 1.5 s into Manik Mia Avenue's speed bonus. Never off the start line or after the finish; 25 s `cooldown`. Thresholds: `SLOWED`, `CRUISING`, `SPEEDUP_DELAY` in `GameScene.js` |
 | `pickup`, `puddle` | Passenger picked up, drove through water |
-| `crash_<vehicle>` | Collision. `crash_car` (bumper) chains to `bump_honk`, `crash_brtc` to `brtc_honk`, `crash_tesla` and `crash_rickshaw` to `rickshaw_dhur` |
+| `crash_<vehicle>` | Collision. `crash_car` chains to `bump_honk`, `crash_brtc` to `brtc_honk`, `crash_vip` to `bump_honk`, `crash_tesla` and `crash_rickshaw` to `rickshaw_dhur` |
+| `rickshaw_dhur` | The rickshaw-wala swearing after a Tesla or rickshaw crash (separate because an event whose clip plays skips its own `sfx`, and the crash keeps its crunch) |
 | `close_<vehicle>` | Passed within `CLOSE_MARGIN` px without touching: +৳2 bonus. Just driving in the lane next to a wide bus or BRTC doesn't count |
-| `closeturn_<vehicle>` | Swerved out of a lane just before impact: +৳2 bonus |
+| `closeturn_<vehicle>` | Swerved out of a lane just before impact (or just before the VIP rear-ends you): +৳2 bonus |
 | `helper_left`, `helper_right`, `helper_ahead`, `helper_behind` | Helper's warning on every close call ("বামে / ডানে / সামনে / পেছনে প্লাস্টিক!"; behind is the VIP) |
-| `spawn_<vehicle>` | Vehicle appears (ambient horn, bell, moo) |
-| `pass_<vehicle>` | Overtook a vehicle whose kind has `pass: true` in `KINDS` (the Tesla) |
+| `helper_pothole`, `helper_manhole` | Helper's warning when a pothole or open manhole is coming up in your lane |
+| `spawn_<vehicle>` | Vehicle appears (ambient horn, bell, moo, rev...) |
+| `pass_<vehicle>` | Overtook a vehicle whose kind has `pass: true` in `KINDS` (the Tesla): fully ahead to fully behind without a crash, in any lane. 10 s cooldown, no bonus |
 | `pothole`, `speedbreaker`, `speedbreaker_fast` | Hit a pothole, went over a speed breaker (`_fast`: took it fast and flew) |
+| `zone_flood` | Drove into the waterlogged stretch |
+| `signal_yellow`, `signal_red` | The Asad Gate signal turning as you approach; on red the helper shouts "লাল বাতি! থামেন মামা!", and the first red light of a run also shows the brake control on screen |
+| `stopped_at_red`, `signal_green` | Waited at the line and the light turned green / the light turned green by itself |
 | `red_light` | Crossed the stop line on red: fined |
-| `vip_spotted`, `vip_siren`, `vip_gaveway` | A VIP's warning starts (clip, then siren), you gave way to it in time |
+| `vip_spotted`, `vip_siren`, `vip_gaveway` | A VIP's warning starts (clip, then siren); you were in its lane and gave way in time |
 
-**Engine sound** is a recording of a real leguna, `public/audio/engine/leguna-engine.mp3` (3.5 s seamless loop, mono 64 kbps, 30 KB), looped in `src/audio/sfx.js`. Its pitch and volume follow the speed: idling at 0.8× pitch when stopped, 1× at cruising and 1.25× at Manik Mia Avenue's top speed, a little quieter on the brake, and always under the dhol and voice clips. Until it has decoded (or if it fails to load) a synthesised rumble stands in. To use a new recording, run `tools/enhance_engine.py` on it (usage at the top of the script): it cleans it up (high-pass, low-mid body, hiss cut, light compression, normalising), picks the steadiest stretch and makes the loop. If you change `--length`, update `ENGINE_LOOP_LENGTH` in `sfx.js`, and bump `CACHE` in `public/sw.js` so installed copies fetch the new file.
+**Engine sound** is a recording of a real leguna, `public/audio/engine/leguna-engine.mp3` (3.5 s seamless loop, mono 64 kbps, 30 KB), looped in `src/audio/sfx.js`. Its pitch and volume follow the speed: idling at 0.8× pitch when stopped, 1× at cruising and 1.25× at Manik Mia Avenue's top speed, a little quieter on the brake, and always under the dhol and voice clips. Until it has decoded (or if it fails to load) a synthesised rumble stands in. To use a new recording, run `tools/enhance_engine.py` on it (usage at the top of the script): it cleans it up (high-pass, low-mid body, hiss cut, light compression, normalising), picks the steadiest stretch and makes the loop. If you change `--length`, update `ENGINE_LOOP_LENGTH` in `sfx.js`.
 
 **Street sounds** are synthesised continuously in `src/audio/sfx.js`: each stretch in `src/config.js` has an `ambience` bed. `hum`, `wind` and `rain` are steady layers (0–1 loudness); `horns`, `bells`, `chatter`, `birds` and `drips` are one-off sounds (average number per second):
 
@@ -84,18 +87,43 @@ An event on cooldown skips its meme popup as well as its sound, so a voice line 
 ambience: { hum: 0.4, rain: 0.8, drips: 0.8, bells: 0.2 }, // Asad Avenue
 ```
 
-**Voice clips** (`public/audio/clips/`): every recorded clip played from an `audio` field is treated as a voice, automatically, with no per-clip code (`playClip` in `src/audio/sfx.js`):
+**Voice clips** in `public/audio/clips/`:
+
+| File | Event | Line |
+|---|---|---|
+| `are-era-kara.mp3` | `vip_spotted` | "আরে এরা কারা?" |
+| `assalamualaikum-boro-bhai.mp3` | `pass_tesla` | "আসসালামু আলাইকুম বড় ভাই" |
+| `dhur-beta.mp3` | `rickshaw_dhur` | "ধুর বেটা, এইটা হইল বেটা?" |
+| `khela-hobe.mp3` | `speedup` | "খেলা হবে!" |
+| `aj-chole-jacchi.mp3` | `finish_voice` | "আজ চলে যাচ্ছি, কিন্তু যাচ্ছি না" |
+
+Every recorded clip played from an `audio` field is treated as a voice, automatically, with no per-clip code (`playClip` in `src/audio/sfx.js`):
 
 - **One voice at a time**: a new clip fades out (60 ms) whatever clip is still talking, so two lines never overlap. The newest wins.
 - **Ducking**: while a voice plays, the dhol music and street ambience drop to 35% and the engine to 70% (over ~120 ms), and come back over ~300 ms once the last voice ends. Tune `DUCK` in `sfx.js`.
-- **Repeats**: give clip events a `cooldown` so the same line can't come back too soon (`speedup` 25 s, `finish_voice` 5 s). Meme lines rotate through a shuffle-bag, and non-forced popups have their own shared cooldown.
+- **Repeats**: give clip events a `cooldown` so the same line can't come back too soon (`speedup` 25 s, `pass_tesla` 10 s, `finish_voice` 5 s, `vip_spotted` 4 s, `rickshaw_dhur` 3 s). Meme lines rotate through a shuffle-bag, and non-forced popups have their own shared cooldown.
 - Mute silences clips like everything else (and skips new ones); a hidden tab suspends all audio.
 
-**Recording clips:** mono MP3 at 48–64 kbps, 1–3 seconds, ideally under 40 KB. Put them in `public/audio/` (for example `public/audio/helper/bame-plastic.mp3`) and list them in the event's `audio`. Re-record lines yourself rather than ripping original clips.
+After adding or replacing any file in `public/` (clips, the engine loop), bump `CACHE` in `public/sw.js`: the service worker serves those cache-first, so installed copies would otherwise keep the old ones.
 
-**Recording voices:** [`docs/recording-script.md`](docs/recording-script.md) is the script for friends recording real lines and sounds: every meme line, helper callout and placeholder sound effect, with a suggested file name (in `public/audio/voice/` or `public/audio/sfx/`), a delivery note and what's already recorded. It's generated from `memes.json`, so after changing memes.json regenerate it with `python3 tools/recording_script.py` (Python 3, no packages needed).
+**Recording clips:** mono MP3 at 48–64 kbps, 1–3 seconds, ideally under 40 KB. Put them in `public/audio/` (voice lines and callouts in `public/audio/voice/`, sound effects in `public/audio/sfx/`) and list them in the event's `audio`. Re-record lines yourself rather than ripping original clips.
 
-**Testing in dev** (`npm run dev` only): keys `1`–`9` spawn rickshaw, CNG, bus, car, police, cow, hawker, puddle or passenger in your lane, `0` a BRTC double-decker, `B` a motorbike and `T` a Tesla; with `Shift`, they spawn in the next lane. `V` sends a VIP up your lane (`Shift`+`V`: the next lane), skipping the fairness checks; it waits while one is already on its way. In the console, `window.__game.scene.getScene('Game')` is the running race.
+**Recording voices:** [`docs/recording-script.md`](docs/recording-script.md) is the script for friends recording real lines and sounds: every meme line, helper callout and placeholder sound effect, with a suggested file name (in `public/audio/voice/` or `public/audio/sfx/`), a delivery note and what's already recorded. It's generated from `memes.json`, so after changing memes.json regenerate it with `python3 tools/recording_script.py` (Python 3, no packages needed). New events need a "when it plays" line and a delivery note in its `EVENTS` table, new placeholder sounds a line in `SFX`, and new event clips their transcript in `CLIPS`.
+
+## Dev keys
+
+In `npm run dev` only (all held keys act once per press):
+
+| Key | What |
+|---|---|
+| `1`–`9` | Spawn a rickshaw, CNG, bus, car, police, cow, hawker, puddle or passenger in your lane |
+| `0` | Spawn a BRTC double-decker in your lane |
+| `B`, `T` | Spawn a motorbike / a "Tesla" in your lane |
+| `V` | Send a VIP up your lane, skipping the fairness checks (ignored while one is already on its way) |
+| `Shift` + any of the above | The same in the next lane over |
+| `C` | Show the road's centre line, for tuning bends |
+
+In the console, `window.__game.scene.getScene('Game')` is the running race.
 
 ## Road bends
 
@@ -103,9 +131,11 @@ Each stretch in `src/config.js` has a `bends` list of `[share of the stretch, ro
 
 Gameplay lives in straight-road coordinates (`rx`, `ry` on every object) and `place()` in `GameScene.js` bends them onto the screen, so lanes, collisions and close calls work the same on curves. In dev, press `C` to show the road's centre line; the console warns if a bend is too sharp to keep lanes on screen.
 
+New world objects go through `makeThing()` (traffic and hazards with a `kind`) or `makeProp()` (scenery), which set their road coordinates and add them to the update list.
+
 ## Road feel
 
-- **Camera lean**: the main camera turns up to 2° with the road's heading under the leguna (`LEAN`, `MAX_LEAN` in `GameScene.js`). The HUD, meme popups, callouts and floating `+৳` texts are drawn by a second, level camera. Anything added to the scene is world by default; pass new HUD or popup objects through `this.toHud()`.
+- **Camera lean**: the main camera turns up to 2° with the road's heading under the leguna (`LEAN`, `MAX_LEAN` in `GameScene.js`). The HUD, meme popups, callouts, the VIP warning, the brake hint and floating `+৳` texts are drawn by a second, level camera. Anything added to the scene is world by default; pass new HUD or popup objects through `this.toHud()`.
 - **Speed streaks**: faint lines whip past along the pavements and kerbs from just under cruising speed, strongest with Manik Mia Avenue's speed bonus (drawn by `src/road.js`).
 - **Vibration**: crashes, potholes, fast speed breakers and the red-light fine buzz the phone (`vibrate` in `memes.json`).
 
@@ -118,14 +148,14 @@ Each stretch can list `features` in `src/config.js`, placed by share of the stre
 | `footbridge`, `bunting` | Overhead foot over-bridge / festoon line (overhead things scroll slightly faster, so they read as higher up) |
 | `zebra` | Zebra crossing with pedestrians walking across |
 | `speedbreaker` | Full-width bump; take it fast and the leguna takes off |
-| `junction` | Cross road with a signal: it turns red as you approach, waiting at the stop line turns it green, crossing on red costs a fine |
+| `junction` | Cross road with a signal: it turns red as you approach, waiting at the stop line turns it green, crossing on red costs a fine. Random spawns pause on the approach, and traffic you've overtaken slows down behind you instead of running into you while you wait |
 | `avenue` (zone) | Planted median and lawns on the left |
 | `flood` (zone) | Waterlogged road: 70% speed and splashes |
 | `busstand` (zone) | Parked buses and a bus lot on the right |
 
 Potholes and open manholes come from the random spawn mix (`spawn` weights per stretch); the helper warns you when one is coming up in your lane.
 
-**Fair spawns:** `spawn()` never fills the last free lane near the top of the screen, and it also predicts when each solid will pass the leguna at the stretch's cruising speed, so slow, long vehicles (the 384 px BRTC) can't drift into a three-lane wall further down.
+**Fair spawns:** `spawn()` never fills the last free lane near the top of the screen, and it also predicts when each solid will pass the leguna at the stretch's cruising speed (`closesRoad()`), so slow, long vehicles (the 384 px BRTC) can't drift into a three-lane wall further down. Lane changers use the same prediction before every move, and a VIP's lane stays free of new traffic. Traffic behind the leguna never drives into it (`yieldBehind()`): it slows to the leguna's speed when it gets close.
 
 ## Lane changers
 
@@ -142,9 +172,16 @@ A lane change only starts when it's fair (`canChangeLane()`):
 - nothing solid in the target lane is within `SWERVE_GAP` (40 px) of it, now or (given their speeds) in the next `SWERVE_LOOKAHEAD` (3) seconds;
 - it wouldn't close the last free lane at the player's row: the same prediction `spawn()` uses.
 
-While moving, the vehicle's `lane` follows its centre (for collisions, close calls and `checkNearMiss`), and it counts as blocking both lanes for spawns and the fairness check (`inLane()`). If it catches up with something slower in its lane it tucks in behind at that speed and looks for a gap sooner.
+While moving, the vehicle's `lane` follows its centre (for collisions, close calls and `checkNearMiss`), and it counts as blocking both lanes for spawns and the fairness check (`inLane()`). If it catches up with something slower in its lane it tucks in behind at that speed and looks for a gap sooner, and speeds up again once the way is clear (`keepGap()`). People crossing at a zebra don't count (they're out of the lane in a moment), and no lane change starts while they're crossing nearby or into a VIP's lane.
 
-**The VIP** has its own timer instead of `spawn` weights: every `VIP.roll` px of route (`src/config.js`) a stretch's `vip` value is the chance of one (0.3 on Manik Mia Avenue, 0.03 on Farmgate, Asad Gate and Mohammadpur, none on flooded Asad Avenue), never near the signal or the finish, nor while the leguna is crawling, with a breather after each. Its lane is picked with the same pass-time prediction: nothing solid in that lane from just ahead of the leguna down to below the screen, the other two lanes never both blocked while it passes, and if it's coming up the leguna's lane, a lane next to it stays clear until it has passed. While it's on its way, `spawn()` refuses any new solid that would reach the leguna's row as it passes. On the road it changes lane once around slower traffic if there's room (never into the leguna's lane until it's well past), otherwise it brakes and queues.
+## The VIP
+
+A black SUV with a small gold pennant and a flashing red/blue light bar that comes from *behind* (`vip` in `KINDS`, `VIP` in `src/config.js`). A flashing `▲ 🚨 ▲` badge appears at the bottom of the screen in the lane it will use, together with its clip and siren; `VIP.lead` (1.2 s) later it appears below the screen and drives up `VIP.boost` (250 px/s) faster than cruising, reaching the leguna's row about 2.2 s after the warning. Stay in that lane and it rear-ends you; move out in time for `vip_gaveway` (+৳5).
+
+- **When:** every `VIP.roll` px of route a stretch's `vip` value is the chance of one (0.3 on Manik Mia Avenue, 0.03 on Farmgate, Asad Gate and Mohammadpur, none on flooded Asad Avenue); never near the signal or the finish, nor while the leguna is crawling, with a breather after each.
+- **Which lane:** one where it can drive up to 500 px past the leguna without braking for anything (`vipBlocked()` predicts each car in the lane at their own speeds; the VIP is faster than everything, so a slow car in its lane would make it queue), the other two lanes are never both blocked while it passes, and if it's coming up the leguna's lane, a lane next to it stays clear until it has passed. Half the time it comes for the leguna's lane when that's fair.
+- **Waiting for a lane:** when one is due but no lane is clear yet, it picks its lane and keeps it free of new traffic and lane changers for up to 8 s (`VIP_WAIT`); the warning starts once the lane has cleared, otherwise it's quietly dropped.
+- **On its way:** `spawn()` refuses any new solid that would reach the leguna's row while it passes. For slower traffic ahead it changes lane when that's fair (on screen, never into the leguna's lane before it's well past); if it can't while still behind the leguna, it gives up, drops back off the bottom and is gone without a bonus. Past the leguna it queues and keeps looking for a gap. It brakes for a leguna that has nearly stopped in its lane instead of rear-ending it.
 
 ## Where things live
 
@@ -153,13 +190,15 @@ While moving, the vehicle's `lane` follows its centre (for collisions, close cal
 | `src/config.js` | Design resolution, speeds, route stretches with their bends, obstacle types |
 | `src/track.js` | Turns each stretch's `bends` into the road's sideways offset along the route |
 | `src/road.js` | Draws the bending road every frame (asphalt, kerbs, lane dashes, pavements, speed streaks) |
-| `src/scenes/GameScene.js` | The race: spawning, steering, collisions, meme popups, HUD |
+| `src/scenes/GameScene.js` | The race: spawning and fairness, lane changers, the VIP, steering, collisions, the signal, meme popups, HUD |
 | `src/art/textures.js` | Placeholder rickshaw-art sprites drawn in code; replace with real images later |
 | `src/audio/sfx.js` | Synthesised sound effects, recorded clips (one voice at a time, ducking), the dhol loop, the engine (recorded loop, synth fallback), street ambience and vibration |
-| `public/audio/clips/` | Recorded voice lines for events and memes (listed in `memes.json`) |
+| `public/memes.json` | Sounds, callouts and meme popups for every event |
+| `public/audio/clips/` | Recorded voice clips for events (listed in `memes.json`) |
 | `public/audio/engine/leguna-engine.mp3` | The leguna's engine loop, made by `tools/enhance_engine.py` from a phone recording |
 | `tools/` | Asset scripts: `cutout.py` (vehicle art cut-outs), `enhance_engine.py` (engine recording to game loop), `recording_script.py` (memes.json to the recording script) |
 | `docs/recording-script.md` | What to record for voices and sound effects, generated by `tools/recording_script.py` |
 | `public/audio/voice/`, `public/audio/sfx/` | Where recorded voice lines / callouts and sound effects go |
+| `public/sw.js` | Offline cache (bump `CACHE` when files in `public/` change) |
 | `src/i18n.js` | Bangla / English strings |
 | `src/share.js` | Score-card image for Facebook / Messenger sharing |
