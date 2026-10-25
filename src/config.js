@@ -62,7 +62,15 @@ export const KINDS = {
   // Set-piece kinds, placed by `features` rather than random spawns
   speedbreaker: { tex: 'speedbreaker', vy: 0, effect: 'bump', span: true, depth: 2 },
   pedestrian: { tex: 'ped0', vy: 0, solid: true },
+  // VIP motorcade car: comes from behind with its siren on and overtakes. Spawned by its own timer
+  // (`vip` per stretch), never by `spawn` weights; its vy is set from the cruising speed when it appears.
+  vip: { tex: 'vip', vy: 0, solid: true },
 };
+
+// The VIP: `vip` in a stretch is the chance of one per roll, rolled every VIP.roll px of route.
+// It drives `boost` px/s faster than the stretch's cruising speed; the warning shows `lead` s before it
+// is spawned `spawnBelow` px under the screen. Moving out of its lane in time pays `bonus`.
+export const VIP = { roll: 1400, boost: 250, lead: 0.6, spawnBelow: 200, bonus: 5 };
 
 // Bends: each stretch lists [share of the stretch, road position at its end]. The position is in
 // BEND_SHIFT units sideways (-1 = left, 1 = right); the road eases there with a smooth S, and a run of
@@ -79,6 +87,7 @@ export const STRETCHES = [
     name: { bn: 'ফার্মগেট', en: 'Farmgate' },
     spawn: { rickshaw: 3, cng: 2, bus: 1, passenger: 3, hawker: 2, pothole: 1, bike: 1, tesla: 0.5 },
     gap: [520, 820],
+    vip: 0.03,
     ambience: { hum: 0.9, horns: 0.6, bells: 0.4, chatter: 0.3 },
     // Busy wiggles, then Khamarbari's long left sweep onto Manik Mia Avenue
     bends: [[0.3, 0], [0.25, 0.3], [0.2, 0], [0.25, -0.8]],
@@ -96,6 +105,7 @@ export const STRETCHES = [
     spawn: { car: 4, bus: 1, brtc: 1, police: 1, passenger: 1, bike: 1 },
     gap: [600, 900],
     speedBonus: 1.25,
+    vip: 0.3, // the wide avenue is where the motorcades fly
     ambience: { hum: 0.3, wind: 0.8, birds: 0.3, horns: 0.1 },
     bends: [[1, -0.8]], // dead straight, wide avenue
     // Planted median on the left and open lawns beyond it
@@ -106,6 +116,7 @@ export const STRETCHES = [
     name: { bn: 'আসাদ গেট', en: 'Asad Gate' },
     spawn: { bus: 3, brtc: 1, rickshaw: 3, cng: 2, passenger: 1, manhole: 1, bike: 1 },
     gap: [420, 680],
+    vip: 0.03,
     ambience: { hum: 1, horns: 0.8, bells: 0.3, chatter: 0.2 },
     // Straight run-up to the junction, then the right sweep onto Asad Avenue
     bends: [[0.5, -0.8], [0.3, 0.4], [0.2, 0.4]],
@@ -125,6 +136,7 @@ export const STRETCHES = [
     name: { bn: 'মোহাম্মদপুর বাসস্ট্যান্ড', en: 'Mohammadpur Bus Stand' },
     spawn: { passenger: 3, bus: 2, rickshaw: 2, cng: 1, hawker: 1, pothole: 1, bike: 1, tesla: 2 },
     gap: [460, 720],
+    vip: 0.03,
     ambience: { hum: 0.6, chatter: 0.9, horns: 0.5, bells: 0.3 },
     bends: [[0.35, 0.3], [0.65, 0.3]], // eases straight into the bus stand
     features: [{ type: 'zebra', at: 0.3 }, { type: 'bunting', at: 0.45 }, { type: 'busstand', at: 0.6, to: 1 }],
