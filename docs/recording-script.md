@@ -8,10 +8,10 @@ Almost every sound in the game is a computer-made placeholder. This is the list 
 
 | What | Total | Recorded | Left |
 |---|---|---|---|
-| Helper callouts (record these first) | 9 | 0 | 9 |
+| Helper callouts (record these first) | 11 | 0 | 11 |
 | Event voice clips | 5 | 5 | 0 |
-| Meme voice lines | 91 | 0 | 91 |
-| Sound effects | 25 | 0 | 25 |
+| Meme voice lines | 96 | 0 | 96 |
+| Sound effects | 26 | 0 | 26 |
 | Clips already in the game | 6 | 6 | 0 |
 
 ## How to record
@@ -48,6 +48,8 @@ The helper hangs off the back of the leguna and shouts these every time somethin
 | `helper_manhole` | The helper hanging off the back warns about an open manhole coming up in your lane. | ম্যানহোল! সাইড চাপেন! | Manhole! Move over! | Shouted warning over traffic noise, urgent: the driver has a second to react. | To record | `voice/callout-manhole.mp3` |
 | `helper_pothole` | The helper hanging off the back warns about a pothole coming up in your lane. | সামনে গর্ত! | Pothole ahead! | Shouted warning over traffic noise, urgent: the driver has a second to react. | To record | `voice/callout-pothole.mp3` |
 | `vip_spotted` | A VIP car is coming up from behind: the flashing warning appears at the bottom of the screen in its lane, about 2 s before it reaches the leguna. The siren starts with it. | পেছনে সাইরেন! সাইড দেন! | Siren behind! Give way! | The helper shouting over the siren: urgent, telling the driver to pull aside now. | To record | `voice/callout-vip-spotted.mp3` |
+| `turn_left` | The leguna turns left at the signal at the end of Manik Mia Avenue (the view swings round with it): the helper calls the turn. | বামে মোড় নেন মামা! | Turn left, Mama! | Shouted direction from the back, quick and sing-song. | To record | `voice/callout-turn-left.mp3` |
+| `turn_right` | The leguna turns right at Asad Gate, where a traffic police officer waves the traffic through: the helper calls the turn. | ডানে কাটেন মামা! | Cut right, Mama! | Shouted direction from the back, quick and sing-song. | To record | `voice/callout-turn-right.mp3` |
 | `signal_yellow` | The junction signal turns yellow as you approach. | বাতি হলুদ মামা! | Light's turning, Mama! | Urgent shouted warning. | To record | `voice/callout-signal-yellow.mp3` |
 | `signal_red` | The signal turns red: the helper shouts to stop (the first time in a run, the brake control is also shown on screen). | লাল বাতি! থামেন মামা! | Red light! Stop, Mama! | Urgent shout, telling the driver to stop right now. | To record | `voice/callout-signal-red.mp3` |
 
@@ -386,6 +388,35 @@ Meme popups that appear during the run, roughly in the order you meet them: star
 |---|---|---|---|
 | নামেন নামেন, বাসস্ট্যান্ড! | Off you get — bus stand! | To record | `voice/stretch-mohammadpur-off-you-get-bus-stand.mp3` |
 
+### `stretch_townhall`
+
+**When it plays:** Entering Town Hall Market in Mohammadpur: stalls, hawkers and rickshaws everywhere.  
+**Delivery:** Market-day bustle: loud, amused, a little overwhelmed.
+
+| Bangla | Meaning | Status | File |
+|---|---|---|---|
+| টাউন হল বাজার! মাছ, সবজি, রিকশা সব একসাথে 🐟 | Town Hall Market! Fish, veg and rickshaws all at once 🐟 | To record | `voice/stretch-townhall-town-hall-market-fish-veg.mp3` |
+
+### `turn_left`
+
+**When it plays:** The leguna turns left at the signal at the end of Manik Mia Avenue (the view swings round with it): the helper calls the turn.  
+**Delivery:** Shouted direction from the back, quick and sing-song.
+
+| Bangla | Meaning | Status | File |
+|---|---|---|---|
+| মানিক মিয়া শেষ, এবার বামে! ↩️ | Manik Mia done, now hard left! ↩️ | To record | `voice/turn-left-manik-mia-done-now-hard.mp3` |
+| ইন্ডিকেটর? ওইটা আবার কী মামা? 😎 | Indicator? What is that, Mama? 😎 | To record | `voice/turn-left-indicator-what.mp3` |
+
+### `turn_right`
+
+**When it plays:** The leguna turns right at Asad Gate, where a traffic police officer waves the traffic through: the helper calls the turn.  
+**Delivery:** Shouted direction from the back, quick and sing-song.
+
+| Bangla | Meaning | Status | File |
+|---|---|---|---|
+| আসাদ গেট! ডানে টান মামা ↪️ | Asad Gate! Swing right, Mama ↪️ | To record | `voice/turn-right-asad-gate-swing-right.mp3` |
+| পুলিশ মামা হাত দেখাইসে, যান যান! 👮 | The traffic cop waved us on, go go! 👮 | To record | `voice/turn-right-traffic-cop-waved-us-go.mp3` |
+
 ### `zone_flood`
 
 **When it plays:** Driving into the waterlogged road.  
@@ -481,7 +512,7 @@ Real-world sounds to replace the synthesised placeholders. Record them on the st
 | `airhorn` | BRTC double-decker diesel air horn: deep, very loud, two blasts. | `brtc_honk`, `close_brtc`, `spawn_brtc` | To record | `sfx/airhorn.mp3` |
 | `angryhonk` | Angry private-car horn: one long blast then three short ones. | `bump_honk` | To record | `sfx/angryhonk.mp3` |
 | `beep` | Two short car horn beeps. | `close_car` | To record | `sfx/beep.mp3` |
-| `bell` | Rickshaw bell: the quick "kring-kring" thumb bell. | `spawn_pedestrian`, `spawn_rickshaw` | To record | `sfx/bell.mp3` |
+| `bell` | Rickshaw bell: the quick "kring-kring" thumb bell. | `spawn_pedestrian`, `spawn_rickshaw`, `stretch_townhall` | To record | `sfx/bell.mp3` |
 | `bigcrash` | Leguna into a double-decker: long, deep crash with a sheet-metal clang. | `crash_brtc`, `crash_vip` | To record | `sfx/bigcrash.mp3` |
 | `boing` | Comedy "boing" (spring or a mouth sound). | `crash` meme line, `crash_pedestrian` | To record | `sfx/boing.mp3` |
 | `bonus` | Short bright "bonus" chime, e.g. coins shaken in a hand. Can stay synthetic. | `close`, `close_bike`, `close_brtc`, `close_car`, `close_tesla`, `close_vip`, `closeturn`, `closeturn_bike`, `closeturn_brtc`, `closeturn_tesla`, `closeturn_vip` | To record | `sfx/bonus.mp3` |
@@ -497,6 +528,7 @@ Real-world sounds to replace the synthesised placeholders. Record them on the st
 | `rev` | Motorbike: a throttle blip ("brrRAAP") and two quick pips on its tiny horn. | `close_bike`, `closeturn_bike`, `crash_bike`, `spawn_bike` | To record | `sfx/rev.mp3` |
 | `rumble` | Diesel bus engine rumble passing close by. | `close_brtc`, `closeturn_brtc` | To record | `sfx/rumble.mp3` |
 | `sad` | Sad "wah-wah-waaah" trombone; hum or whistle it if there is no instrument. | `crash` meme line, `red_light` | To record | `sfx/sad.mp3` |
+| `screech` | Tyres squealing through a sharp turn (a short, wavering squeal). | `turn_left`, `turn_right` | To record | `sfx/screech.mp3` |
 | `siren` | VIP motorcade siren: a two-tone wail rising and falling, about 4 s, swelling in and fading out. | `vip_siren` | To record | `sfx/siren.mp3` |
 | `slap` | Two hand slaps on the leguna's metal side (the helper's "go" signal). | `start`, `stretch_mohammadpur` | To record | `sfx/slap.mp3` |
 | `splash` | Tyre splashing through a puddle. | `puddle`, `stretch_asadave`, `zone_flood` | To record | `sfx/splash.mp3` |

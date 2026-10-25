@@ -189,6 +189,12 @@ const SFX = {
     }
   },
   whoosh: () => noise(0.35, 0.4, 'bandpass', 350, 3200),
+  // Tyres squealing through a sharp turn: a wavering high whine over hissing rubber
+  screech: () => {
+    noise(0.6, 0.22, 'bandpass', 2600, 1700);
+    tone('sawtooth', 1180, 920, 0.55, 0.05);
+    tone('square', 1250, 980, 0.45, 0.035, 0.05);
+  },
   moo: () => {
     tone('sawtooth', 170, 105, 1.0, 0.14);
     tone('sine', 85, 60, 1.0, 0.2);

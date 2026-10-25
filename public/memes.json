@@ -126,6 +126,23 @@
     "stretch_mohammadpur": {
       "sfx": "slap"
     },
+    "stretch_townhall": {
+      "sfx": "bell"
+    },
+    "turn_left": {
+      "sfx": "screech",
+      "caption": {
+        "bn": "বামে মোড় নেন মামা!",
+        "en": "Turn left, Mama!"
+      }
+    },
+    "turn_right": {
+      "sfx": "screech",
+      "caption": {
+        "bn": "ডানে কাটেন মামা!",
+        "en": "Cut right, Mama!"
+      }
+    },
     "finish": {
       "sfx": "sting",
       "chain": [
@@ -610,6 +627,32 @@
       {
         "bn": "নামেন নামেন, বাসস্ট্যান্ড!",
         "en": "Off you get — bus stand!"
+      }
+    ],
+    "stretch_townhall": [
+      {
+        "bn": "টাউন হল বাজার! মাছ, সবজি, রিকশা সব একসাথে 🐟",
+        "en": "Town Hall Market! Fish, veg and rickshaws all at once 🐟"
+      }
+    ],
+    "turn_left": [
+      {
+        "bn": "মানিক মিয়া শেষ, এবার বামে! ↩️",
+        "en": "Manik Mia done, now hard left! ↩️"
+      },
+      {
+        "bn": "ইন্ডিকেটর? ওইটা আবার কী মামা? 😎",
+        "en": "Indicator? What is that, Mama? 😎"
+      }
+    ],
+    "turn_right": [
+      {
+        "bn": "আসাদ গেট! ডানে টান মামা ↪️",
+        "en": "Asad Gate! Swing right, Mama ↪️"
+      },
+      {
+        "bn": "পুলিশ মামা হাত দেখাইসে, যান যান! 👮",
+        "en": "The traffic cop waved us on, go go! 👮"
       }
     ],
     "finish": [

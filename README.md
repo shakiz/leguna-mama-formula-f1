@@ -4,6 +4,8 @@ A free, just-for-fun web game: drive a leguna from **Farmgate to Mohammadpur Bus
 
 Built with [Phaser 3.90](https://phaser.io) and Vite. Nearly all art and sounds are placeholders generated in code (the exceptions are the leguna's side-view art, its recorded engine and five voice clips), so the game itself is ~380 KB to download (gzipped code, art and `memes.json`), plus ~215 KB of audio fetched in the background (the 30 KB engine loop and 190 KB of voice clips). A careful run takes about 90–95 s.
 
+**The route** follows the real road: from Farmgate dead straight down Manik Mia Avenue past the Parliament, **left** at the signal at its end, a short run up Mirpur Road, **right** at Asad Gate, then straight along Asad Avenue past Town Hall Market to Mohammadpur Bus Stand.
+
 ## Run locally
 
 ```sh
@@ -53,7 +55,7 @@ An event on cooldown skips its meme popup as well as its sound, even a forced on
 
 **Vehicles with their own sounds:**
 
-- **BRTC double-decker** (`brtc`, Manik Mia Avenue and Asad Gate): `spawn_brtc` sounds its deep `airhorn` now and then, `close_brtc` / `closeturn_brtc` add the horn and a diesel `rumble`, and `crash_brtc` is a heavier `bigcrash`; the closeturn and crash chain to `brtc_honk` (the air horn again).
+- **BRTC double-decker** (`brtc`, Manik Mia Avenue and the Mirpur Road run to Asad Gate): `spawn_brtc` sounds its deep `airhorn` now and then, `close_brtc` / `closeturn_brtc` add the horn and a diesel `rumble`, and `crash_brtc` is a heavier `bigcrash`; the closeturn and crash chain to `brtc_honk` (the air horn again).
 - **Motorbike** (`bike`) and the battery rickshaw Dhaka calls a **"Tesla"** (`tesla`) change lanes (see [Lane changers](#lane-changers)). `spawn_bike` revs and pips (`rev`), `spawn_tesla` gives its tinny electric whine and horn (`ewhine`); both have their own `close_` / `closeturn_` / `crash_` memes. Overtaking a Tesla plays `pass_tesla`; crashing into a Tesla or a rickshaw chains to `rickshaw_dhur`.
 - **VIP car** (`vip`, see [The VIP](#the-vip)): `vip_spotted` when its warning starts (a voice clip plus the helper's "পেছনে সাইরেন! সাইড দেন!" callout) chains straight to `vip_siren` (the synth `siren`, a separate event so the clip and the siren both play); `close_vip` / `closeturn_vip`, `crash_vip` (`bigcrash`) and `vip_gaveway` (+৳5). Keep its memes about VIP protocol in traffic in general: no parties, flags, names or real people.
 
@@ -74,7 +76,8 @@ An event on cooldown skips its meme popup as well as its sound, even a forced on
 | `pass_<vehicle>` | Overtook a vehicle whose kind has `pass: true` in `KINDS` (the Tesla): fully ahead to fully behind without a crash, in any lane. 10 s cooldown, no bonus |
 | `pothole`, `speedbreaker`, `speedbreaker_fast` | Hit a pothole, went over a speed breaker (`_fast`: took it fast and flew) |
 | `zone_flood` | Drove into the waterlogged stretch |
-| `signal_yellow`, `signal_red` | The Asad Gate signal turning as you approach; on red the helper shouts "লাল বাতি! থামেন মামা!", and the first red light of a run also shows the brake control on screen |
+| `turn_left`, `turn_right` | The leguna turns at a junction (the view swings round with it): tyre `screech` and the helper calling the turn |
+| `signal_yellow`, `signal_red` | The signal at the end of Manik Mia Avenue turning as you approach; on red the helper shouts "লাল বাতি! থামেন মামা!", and the first red light of a run also shows the brake control on screen |
 | `stopped_at_red`, `signal_green` | Waited at the line and the light turned green / the light turned green by itself |
 | `red_light` | Crossed the stop line on red: fined |
 | `vip_spotted`, `vip_siren`, `vip_gaveway` | A VIP's warning starts (clip, then siren); you were in its lane and gave way in time |
@@ -148,10 +151,22 @@ Each stretch can list `features` in `src/config.js`, placed by share of the stre
 | `footbridge`, `bunting` | Overhead foot over-bridge / festoon line (overhead things scroll slightly faster, so they read as higher up) |
 | `zebra` | Zebra crossing with pedestrians walking across |
 | `speedbreaker` | Full-width bump; take it fast and the leguna takes off |
-| `junction` | Cross road with a signal: it turns red as you approach, waiting at the stop line turns it green, crossing on red costs a fine. Random spawns pause on the approach, and traffic you've overtaken slows down behind you instead of running into you while you wait |
-| `avenue` (zone) | Planted median and lawns on the left |
+| `junction` | A square crossing of two equal roads, with zebras and stop lines on all four arms. `turn: 'left' \| 'right'` turns there (see [Turns](#turns)). `signal: true` adds a signal: it turns red as you approach, waiting at the stop line turns it green, crossing on red costs a fine and cross traffic runs while it's red; traffic you've overtaken slows down behind you instead of running into you while you wait. Without it a traffic police umbrella directs it. Random spawns pause on the approach |
 | `flood` (zone) | Waterlogged road: 70% speed and splashes |
 | `busstand` (zone) | Parked buses and a bus lot on the right |
+| `residential`, `parliament`, `townhall` (zones), `asadgate_monument`, `signboard` | Landmarks, drawn by `src/landmarks.js`. Features may carry extra fields (`side: 'left' \| 'right'`, `text: { bn, en }`), which `track.js` passes through |
+
+**Camera framing:** a stretch can set `view: { zoom, panX }`; it eases in on entering the stretch, around the leguna. Manik Mia Avenue uses `zoom: 0.8, panX: 70` so the wide avenue and the Parliament side are in view. Spawn rows move up by `viewPad()` when zoomed out, so nothing pops in at the top.
+
+## Turns
+
+At a junction with `turn`, the leguna slows along a braking curve to `TURN.speed` (200 px/s) `TURN.slowFrom` px before the centre, steering locks for the last `TURN.lockFrom` px, and at the centre the main camera pivots 90° about the leguna in `TURN.pivot` (0.7 s) while the leguna stays upright on screen (`src/config.js`). Phaser's camera rotation is clockwise-positive in y-down screen space, so a left turn rotates the camera to +90°: the cross road on the left swings up to point ahead. The HUD camera stays level.
+
+At the end of the pivot `snapTurn()` rotates every object's road coordinates (`rx`, `ry`, `tilt`) about the leguna by the same angle, shifts them so the cross road becomes the road (centre line at x = 360, leguna in the middle lane, the junction at its own route distance), and resets the camera in the same frame, so nothing moves on screen. The road drawing matches because junctions look the same from all four arms (`road.js`: the cross road as wide as ours, with kerbs, pavements, lane dashes, zebras and stop lines on every arm, nothing inside the box, and junction centres snapped to where lane dashes and kerb stripes are symmetric about them). Nothing scenic stands within `JUNCTION.clear` (520 px) of a junction centre.
+
+The cross road's street (rooftops and decor along both arms, and set pieces up to `TURN_REACH` px past the junction) is created with the junction, already in the new road's frame (`inNewFrame()`): objects placed there wait, without gameplay, where the turn will carry them. Moving traffic that drives on past the junction box fades out, and at the pivot everything still moving (cross traffic, the VIP, whatever is behind) fades out too; random spawns pause on the approach and resume on the new road. No VIP warning starts within `VIP_TURN_GAP` (4500) px before a turn.
+
+Keep zone landmarks and anything the road renderer draws (zones, lots, water) at least `TURN_REACH` px away from a turning junction: only objects are carried round by the snap.
 
 Potholes and open manholes come from the random spawn mix (`spawn` weights per stretch); the helper warns you when one is coming up in your lane.
 
@@ -164,7 +179,7 @@ Kinds with a `weave` entry in `KINDS` hop to an adjacent lane on a random timer 
 | Kind | Speed (`vy`) | Where | Lane changes |
 |---|---|---|---|
 | `bike`: motorbike, rider with a helmet, pillion without | 450, fast | Every stretch, a little | Every 1–2.2 s, a smooth 320 ms slide with a slight lean |
-| `tesla`: battery rickshaw / easybike, painted canopy over an open cabin | 200, slow | Mostly Asad Avenue and Mohammadpur, a little at Farmgate | Every 0.6–1.4 s, a sudden 200 ms lurch that overshoots, with a bigger lean |
+| `tesla`: battery rickshaw / easybike, painted canopy over an open cabin | 200, slow | Mostly Asad Avenue, Town Hall Market and Mohammadpur, a little at Farmgate | Every 0.6–1.4 s, a sudden 200 ms lurch that overshoots, with a bigger lean |
 
 A lane change only starts when it's fair (`canChangeLane()`):
 
@@ -178,7 +193,7 @@ While moving, the vehicle's `lane` follows its centre (for collisions, close cal
 
 A black SUV with a small gold pennant and a flashing red/blue light bar that comes from *behind* (`vip` in `KINDS`, `VIP` in `src/config.js`). A flashing `▲ 🚨 ▲` badge appears at the bottom of the screen in the lane it will use, together with its clip and siren; `VIP.lead` (1.2 s) later it appears below the screen and drives up `VIP.boost` (250 px/s) faster than cruising, reaching the leguna's row about 2.2 s after the warning. Stay in that lane and it rear-ends you; move out in time for `vip_gaveway` (+৳5).
 
-- **When:** every `VIP.roll` px of route a stretch's `vip` value is the chance of one (0.3 on Manik Mia Avenue, 0.03 on Farmgate, Asad Gate and Mohammadpur, none on flooded Asad Avenue); never near the signal or the finish, nor while the leguna is crawling, with a breather after each.
+- **When:** every `VIP.roll` px of route a stretch's `vip` value is the chance of one (0.3 on Manik Mia Avenue, 0.03 on Farmgate, Asad Gate, Town Hall Market and Mohammadpur, none on flooded Asad Avenue); never near a junction, in the run-up to a turn or near the finish, nor while the leguna is crawling, with a breather after each.
 - **Which lane:** one where it can drive up to 500 px past the leguna without braking for anything (`vipBlocked()` predicts each car in the lane at their own speeds; the VIP is faster than everything, so a slow car in its lane would make it queue), the other two lanes are never both blocked while it passes, and if it's coming up the leguna's lane, a lane next to it stays clear until it has passed. Half the time it comes for the leguna's lane when that's fair.
 - **Waiting for a lane:** when one is due but no lane is clear yet, it picks its lane and keeps it free of new traffic and lane changers for up to 8 s (`VIP_WAIT`); the warning starts once the lane has cleared, otherwise it's quietly dropped.
 - **On its way:** `spawn()` refuses any new solid that would reach the leguna's row while it passes. For slower traffic ahead it changes lane when that's fair (on screen, never into the leguna's lane before it's well past); if it can't while still behind the leguna, it gives up, drops back off the bottom and is gone without a bonus. Past the leguna it queues and keeps looking for a gap. It brakes for a leguna that has nearly stopped in its lane instead of rear-ending it.
@@ -189,7 +204,8 @@ A black SUV with a small gold pennant and a flashing red/blue light bar that com
 |---|---|
 | `src/config.js` | Design resolution, speeds, route stretches with their bends, obstacle types |
 | `src/track.js` | Turns each stretch's `bends` into the road's sideways offset along the route |
-| `src/road.js` | Draws the bending road every frame (asphalt, kerbs, lane dashes, pavements, speed streaks) |
+| `src/road.js` | Draws the bending road every frame (asphalt, kerbs, lane dashes, pavements, symmetric junctions, speed streaks), over whatever area the camera shows |
+| `src/landmarks.js` | Landmark set pieces (`spawnLandmark`, `drawLandmarks`, `sideTaken`, `landmarkTick`) |
 | `src/scenes/GameScene.js` | The race: spawning and fairness, lane changers, the VIP, steering, collisions, the signal, meme popups, HUD |
 | `src/art/textures.js` | Placeholder rickshaw-art sprites drawn in code; replace with real images later |
 | `src/audio/sfx.js` | Synthesised sound effects, recorded clips (one voice at a time, ducking), the dhol loop, the engine (recorded loop, synth fallback), street ambience and vibration |
