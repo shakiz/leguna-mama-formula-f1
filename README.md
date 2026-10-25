@@ -2,7 +2,7 @@
 
 A free, just-for-fun web game: drive a leguna from **Farmgate to Mohammadpur Bus Stand**, dodge rickshaws, buses, BRTC double-deckers, cows and waterlogging, pick up passengers, and share your time. Works the same on phones and desktop (fixed 9:16 layout, scaled to fit).
 
-Built with [Phaser 3.90](https://phaser.io) and Vite. Nearly all art and sounds are placeholders generated in code (the exceptions are the leguna's side-view art and its recorded engine), so the whole game is ~410 KB gzipped.
+Built with [Phaser 3.90](https://phaser.io) and Vite. Nearly all art and sounds are placeholders generated in code (the exceptions are the leguna's side-view art, its recorded engine and a few voice clips), so the whole game is ~470 KB gzipped.
 
 ## Run locally
 
@@ -53,7 +53,9 @@ The BRTC double-decker (`brtc`, Manik Mia Avenue and Asad Gate only) has the ful
 
 | Event | When |
 |---|---|
-| `start`, `finish`, `newbest`, `stretch_<id>` | Run start, finish, new record, entering a route stretch |
+| `start`, `finish`, `newbest`, `stretch_<id>` | Run start, finish, new record, entering a route stretch. `finish` and `newbest` keep their `sting` and chain to `finish_voice` 250 ms later |
+| `finish_voice` | The finish voice line, "আজ চলে যাচ্ছি, কিন্তু যাচ্ছি না" (`audio/clips/aj-chole-jacchi.mp3`). A separate event because a clip on `finish` itself would replace the sting |
+| `speedup` | "খেলা হবে!" (`audio/clips/khela-hobe.mp3`, with a popup). Fires when the leguna is back above 90% of its target speed after a real slowdown (under 40% of cruising after a crash, braking or a red light, or a crawl through the flood), and 1.5 s into Manik Mia Avenue's speed bonus. Never off the start line or after the finish; 25 s `cooldown`, also applied to the popup. Thresholds: `SLOWED`, `CRUISING`, `SPEEDUP_DELAY` in `GameScene.js` |
 | `pickup`, `puddle` | Passenger picked up, drove through water |
 | `crash_<vehicle>` | Collision. `crash_car` (bumper) chains to `bump_honk`, `crash_brtc` to `brtc_honk` |
 | `close_<vehicle>` | Passed within `CLOSE_MARGIN` px without touching: +৳2 bonus. Just driving in the lane next to a wide bus or BRTC doesn't count |
@@ -70,6 +72,13 @@ The BRTC double-decker (`brtc`, Manik Mia Avenue and Asad Gate only) has the ful
 ```js
 ambience: { hum: 0.4, rain: 0.8, drips: 0.8, bells: 0.2 }, // Asad Avenue
 ```
+
+**Voice clips** (`public/audio/clips/`): every recorded clip played from an `audio` field is treated as a voice, automatically, with no per-clip code (`playClip` in `src/audio/sfx.js`):
+
+- **One voice at a time**: a new clip fades out (60 ms) whatever clip is still talking, so two lines never overlap. The newest wins.
+- **Ducking**: while a voice plays, the dhol music and street ambience drop to 35% and the engine to 70% (over ~120 ms), and come back over ~300 ms once the last voice ends. Tune `DUCK` in `sfx.js`.
+- **Repeats**: give clip events a `cooldown` so the same line can't come back too soon (`speedup` 25 s, `finish_voice` 5 s). Meme lines rotate through a shuffle-bag, and non-forced popups have their own shared cooldown.
+- Mute silences clips like everything else (and skips new ones); a hidden tab suspends all audio.
 
 **Recording clips:** mono MP3 at 48–64 kbps, 1–3 seconds, ideally under 40 KB. Put them in `public/audio/` (for example `public/audio/helper/bame-plastic.mp3`) and list them in the event's `audio`. Re-record lines yourself rather than ripping original clips.
 
@@ -114,7 +123,8 @@ Potholes and open manholes come from the random spawn mix (`spawn` weights per s
 | `src/road.js` | Draws the bending road every frame (asphalt, kerbs, lane dashes, pavements, speed streaks) |
 | `src/scenes/GameScene.js` | The race: spawning, steering, collisions, meme popups, HUD |
 | `src/art/textures.js` | Placeholder rickshaw-art sprites drawn in code; replace with real images later |
-| `src/audio/sfx.js` | Synthesised sound effects, the dhol loop, the engine (recorded loop, synth fallback), street ambience and vibration |
+| `src/audio/sfx.js` | Synthesised sound effects, recorded clips (one voice at a time, ducking), the dhol loop, the engine (recorded loop, synth fallback), street ambience and vibration |
+| `public/audio/clips/` | Recorded voice lines for events and memes (listed in `memes.json`) |
 | `public/audio/engine/leguna-engine.mp3` | The leguna's engine loop, made by `tools/enhance_engine.py` from a phone recording |
 | `tools/` | Asset scripts: `cutout.py` (vehicle art cut-outs), `enhance_engine.py` (engine recording to game loop) |
 | `src/i18n.js` | Bangla / English strings |
