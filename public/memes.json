@@ -18,6 +18,12 @@
         90,
         50,
         160
+      ],
+      "chain": [
+        {
+          "event": "voice_crash",
+          "delay": 350
+        }
       ]
     },
     "crash_cow": {
@@ -29,6 +35,12 @@
         90,
         50,
         160
+      ],
+      "chain": [
+        {
+          "event": "voice_crash",
+          "delay": 350
+        }
       ]
     },
     "crash_car": {
@@ -42,6 +54,10 @@
         {
           "event": "bump_honk",
           "delay": 450
+        },
+        {
+          "event": "voice_crash",
+          "delay": 350
         }
       ]
     },
@@ -155,7 +171,8 @@
         "audio/clips/khela-hobe.mp3"
       ],
       "sfx": "whoosh",
-      "cooldown": 25000
+      "cooldown": 25000,
+      "polite": true
     },
     "speedbreaker": {
       "sfx": "thud",
@@ -186,6 +203,12 @@
         90,
         50,
         160
+      ],
+      "chain": [
+        {
+          "event": "voice_crash",
+          "delay": 350
+        }
       ]
     },
     "crash_pedestrian": {
@@ -197,6 +220,12 @@
         90,
         50,
         160
+      ],
+      "chain": [
+        {
+          "event": "voice_crash",
+          "delay": 350
+        }
       ]
     },
     "helper_pothole": {
@@ -296,6 +325,10 @@
         {
           "event": "brtc_honk",
           "delay": 600
+        },
+        {
+          "event": "voice_crash",
+          "delay": 350
         }
       ]
     },
@@ -349,6 +382,10 @@
         {
           "event": "bump_honk",
           "delay": 600
+        },
+        {
+          "event": "voice_crash",
+          "delay": 350
         }
       ]
     },
@@ -405,6 +442,12 @@
         90,
         50,
         160
+      ],
+      "chain": [
+        {
+          "event": "voice_crash",
+          "delay": 350
+        }
       ]
     },
     "crash_tesla": {
@@ -445,7 +488,14 @@
       "audio": [
         "audio/clips/assalamualaikum-boro-bhai.mp3"
       ],
-      "cooldown": 10000
+      "cooldown": 10000,
+      "polite": true
+    },
+    "voice_crash": {
+      "audio": [
+        "audio/clips/apnare-ha-thik-ache-ha.mp3"
+      ],
+      "cooldown": 2500
     }
   },
   "triggers": {

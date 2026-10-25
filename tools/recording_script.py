@@ -81,6 +81,9 @@ EVENTS = {
     'rickshaw_dhur': (CRASH, 'A quarter of a second after the leguna crashes into a rickshaw or a "Tesla": the driver '
                       'swears at the leguna.',
                       'Fed-up rickshaw-wala: a long, disgusted "dhur", then the jab. Annoyed, not angry.'),
+    'voice_crash': (CRASH, 'Right after any other collision (cars, buses, the BRTC, the VIP, bikes, cows, manholes, '
+                    'pedestrians): someone checks on the leguna driver.',
+                    'Mock-concerned and a little sarcastic, like a bystander leaning in: "you alright, hm?"'),
     'stretch_manikmia': (SETPIECE, 'Entering Manik Mia Avenue: wide, empty and fast.', 'Excited, egging the driver on.'),
     'stretch_asadgate': (SETPIECE, 'Entering Asad Gate: the jam and the signal.', 'Fed up, exasperated.'),
     'stretch_asadave': (SETPIECE, 'Entering Asad Avenue: waterlogged in the rain.', 'Resigned, half laughing at the water.'),
