@@ -9,10 +9,10 @@ Almost every sound in the game is a computer-made placeholder. This is the list 
 | What | Total | Recorded | Left |
 |---|---|---|---|
 | Helper callouts (record these first) | 9 | 0 | 9 |
-| Event voice clips | 5 | 5 | 0 |
+| Event voice clips | 6 | 6 | 0 |
 | Meme voice lines | 99 | 0 | 99 |
 | Sound effects | 25 | 0 | 25 |
-| Clips already in the game | 6 | 6 | 0 |
+| Clips already in the game | 7 | 7 | 0 |
 
 ## How to record
 
@@ -61,6 +61,7 @@ Recorded lines that play on a game event, together with its sound effect, helper
 | `speedup` | The leguna is back up to speed after a real slowdown (a crash, braking, the red light or the flood), and 1.5 s into Manik Mia Avenue's open road. At most once every 25 s. | খেলা হবে! | Game on! | Rally cry: pumped up and loud, like a crowd at a big match. | Done | `audio/clips/khela-hobe.mp3` |
 | `vip_spotted` | A VIP car is coming up from behind: the flashing warning appears at the bottom of the screen in its lane, about 2 s before it reaches the leguna. The siren starts with it. | আরে এরা কারা? | Hey, who are these people? | Startled and suspicious, turning round to look: who on earth are these people? | Done | `audio/clips/are-era-kara.mp3` |
 | `rickshaw_dhur` | A quarter of a second after the leguna crashes into a rickshaw or a "Tesla": the driver swears at the leguna. | ধুর বেটা, এইটা হইল বেটা? | Ugh, mate, what was that, mate? | Fed-up rickshaw-wala: a long, disgusted "dhur", then the jab. Annoyed, not angry. | Done | `audio/clips/dhur-beta.mp3` |
+| `voice_crash` | Right after any other collision (cars, buses, the BRTC, the VIP, bikes, cows, manholes, pedestrians): someone checks on the leguna driver. | (not transcribed: add it to CLIPS in tools/recording_script.py) |  | Mock-concerned and a little sarcastic, like a bystander leaning in: "you alright, hm?" | Done | `audio/clips/apnare-ha-thik-ache-ha.mp3` |
 | `finish_voice` | A quarter of a second after the finish (or new record) fanfare at Mohammadpur Bus Stand. | আজ চলে যাচ্ছি, কিন্তু যাচ্ছি না | I'm leaving today, but I'm not really leaving | Wistful, dramatic farewell, half joking, like a hero leaving the stage. | Done | `audio/clips/aj-chole-jacchi.mp3` |
 
 ## Voice lines
@@ -526,6 +527,7 @@ Real-world sounds to replace the synthesised placeholders. Record them on the st
 | File | Used for |
 |---|---|
 | `public/audio/clips/aj-chole-jacchi.mp3` | event `finish_voice` |
+| `public/audio/clips/apnare-ha-thik-ache-ha.mp3` | event `voice_crash` |
 | `public/audio/clips/are-era-kara.mp3` | event `vip_spotted` |
 | `public/audio/clips/assalamualaikum-boro-bhai.mp3` | event `pass_tesla` |
 | `public/audio/clips/dhur-beta.mp3` | event `rickshaw_dhur` |
