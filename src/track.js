@@ -8,12 +8,20 @@ const MAX_SLOPE = 0.2; // steeper than ~11° and lanes at the top of the screen 
 
 let table = new Float32Array(2);
 
+// Set pieces at absolute route distances, sorted: { type, d } for points, plus d1 for zones (`to` given)
+export let features = [];
+
 export function buildTrack() {
   const segs = [];
   let d = 0;
   let pos = 0;
+  features = [];
   STRETCHES.forEach((st, i) => {
     const len = ((STRETCHES[i + 1]?.at ?? 1) - st.at) * ROUTE_LENGTH;
+    const start = st.at * ROUTE_LENGTH;
+    for (const f of st.features ?? []) {
+      features.push({ type: f.type, d: start + f.at * len, ...(f.to !== undefined && { d1: start + f.to * len }) });
+    }
     for (const [share, to] of st.bends) {
       segs.push([d, d + share * len, pos, to * BEND_SHIFT]);
       d += share * len;
@@ -24,6 +32,8 @@ export function buildTrack() {
       if (Math.abs(total - 1) > 1e-6) console.warn(`Stretch ${st.id}: bend shares add up to ${total}, not 1`);
     }
   });
+
+  features.sort((a, b) => a.d - b.d);
 
   table = new Float32Array(Math.ceil((ROUTE_LENGTH + 2 * PAD) / STEP) + 1);
   let si = 0;
@@ -53,4 +63,9 @@ export function offsetAt(d) {
 // Road heading at route distance d, in radians clockwise from straight up
 export function angleAt(d) {
   return Math.atan((offsetAt(d + STEP) - offsetAt(d - STEP)) / (2 * STEP));
+}
+
+// The zone of `type` covering route distance d, if any
+export function zoneAt(d, type) {
+  return features.find((f) => f.type === type && d >= f.d && d <= (f.d1 ?? f.d));
 }

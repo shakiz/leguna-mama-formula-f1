@@ -49,6 +49,12 @@ export const KINDS = {
   hawker: { tex: 'hawker', vy: 40, solid: true },
   puddle: { tex: 'puddle', vy: 0, effect: 'slow' },
   passenger: { tex: 'passenger', vy: 0, effect: 'fare' },
+  // Road hazards. `warn` is the helper's shout when one is coming up in your lane.
+  pothole: { tex: 'pothole', vy: 0, effect: 'jolt', warn: 'helper_pothole', depth: 2 },
+  manhole: { tex: 'manhole', vy: 0, solid: true, warn: 'helper_manhole', depth: 2 },
+  // Set-piece kinds, placed by `features` rather than random spawns
+  speedbreaker: { tex: 'speedbreaker', vy: 0, effect: 'bump', span: true, depth: 2 },
+  pedestrian: { tex: 'ped0', vy: 0, solid: true },
 };
 
 // Bends: each stretch lists [share of the stretch, road position at its end]. The position is in
@@ -61,10 +67,17 @@ export const STRETCHES = [
   {
     id: 'farmgate', at: 0,
     name: { bn: 'ফার্মগেট', en: 'Farmgate' },
-    spawn: { rickshaw: 3, cng: 2, bus: 1, passenger: 3, hawker: 2 },
+    spawn: { rickshaw: 3, cng: 2, bus: 1, passenger: 3, hawker: 2, pothole: 1 },
     gap: [520, 820],
     // Busy wiggles, then Khamarbari's long left sweep onto Manik Mia Avenue
     bends: [[0.3, 0], [0.25, 0.3], [0.2, 0], [0.25, -0.8]],
+    features: [
+      { type: 'footbridge', at: 0.2 },
+      { type: 'bunting', at: 0.3 },
+      { type: 'zebra', at: 0.38 },
+      { type: 'speedbreaker', at: 0.55 },
+      { type: 'bunting', at: 0.72 },
+    ],
   },
   {
     id: 'manikmia', at: 0.18,
@@ -73,28 +86,33 @@ export const STRETCHES = [
     gap: [600, 900],
     speedBonus: 1.25,
     bends: [[1, -0.8]], // dead straight, wide avenue
+    // Planted median on the left and open lawns beyond it
+    features: [{ type: 'avenue', at: 0, to: 1 }, { type: 'speedbreaker', at: 0.6 }],
   },
   {
     id: 'asadgate', at: 0.4,
     name: { bn: 'আসাদ গেট', en: 'Asad Gate' },
-    spawn: { bus: 3, rickshaw: 3, cng: 2, passenger: 1 },
+    spawn: { bus: 3, rickshaw: 3, cng: 2, passenger: 1, manhole: 1 },
     gap: [420, 680],
     // Straight run-up to the junction, then the right sweep onto Asad Avenue
     bends: [[0.5, -0.8], [0.3, 0.4], [0.2, 0.4]],
+    features: [{ type: 'junction', at: 0.42 }],
   },
   {
     id: 'asadave', at: 0.62,
     name: { bn: 'আসাদ এভিনিউ', en: 'Asad Avenue' },
-    spawn: { puddle: 3, cow: 2, rickshaw: 2, cng: 1, passenger: 2 },
+    spawn: { puddle: 3, cow: 2, rickshaw: 2, cng: 1, passenger: 2, pothole: 2, manhole: 1 },
     gap: [480, 760],
     bends: [[0.25, 1.1], [0.25, 0.2], [0.25, 1], [0.25, 0.6]], // S-bends
+    features: [{ type: 'flood', at: 0.3, to: 0.6 }, { type: 'speedbreaker', at: 0.8 }],
   },
   {
     id: 'mohammadpur', at: 0.84,
     name: { bn: 'মোহাম্মদপুর বাসস্ট্যান্ড', en: 'Mohammadpur Bus Stand' },
-    spawn: { passenger: 3, bus: 2, rickshaw: 2, cng: 1, hawker: 1 },
+    spawn: { passenger: 3, bus: 2, rickshaw: 2, cng: 1, hawker: 1, pothole: 1 },
     gap: [460, 720],
     bends: [[0.35, 0.3], [0.65, 0.3]], // eases straight into the bus stand
+    features: [{ type: 'zebra', at: 0.3 }, { type: 'bunting', at: 0.45 }, { type: 'busstand', at: 0.6, to: 1 }],
   },
 ];
 
@@ -103,3 +121,8 @@ export const FARE_PER_PASSENGER = 10;
 // A close call: passing within this many px of a vehicle without touching it earns a bonus
 export const CLOSE_MARGIN = 28;
 export const CLOSE_BONUS = 2;
+
+export const BRAKE_DECEL = ACCEL * 3;
+export const RED_LIGHT_FINE = 20;
+// Junction geometry, in px of route distance from the junction's centre line
+export const JUNCTION = { halfWidth: 110, zebra: [120, 190], stopLine: 205, clear: 300 };

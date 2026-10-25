@@ -13,7 +13,7 @@ npm run build      # production build in dist/
 npm run preview    # serve the production build
 ```
 
-Controls: tap or swipe left/right on mobile, `←` `→` or `A` `D` on desktop. `Enter` starts a run.
+Controls: tap or swipe left/right on mobile, `←` `→` or `A` `D` on desktop. Swipe down (hold) or hold `↓` / `S` to brake. `Enter` starts a run.
 
 ## Deploy to Cloudflare Pages
 
@@ -67,6 +67,22 @@ Everything lives in `public/memes.json`; edit and push, no code changes needed.
 Each stretch in `src/config.js` has a `bends` list of `[share of the stretch, road position at its end]`. Positions are in `BEND_SHIFT` (200 px) units: `-1` is left, `1` is right. The road eases between them with a smooth S, so repeating the same position makes a straight. Shares in a stretch must add up to 1.
 
 Gameplay lives in straight-road coordinates (`rx`, `ry` on every object) and `place()` in `GameScene.js` bends them onto the screen, so lanes, collisions and close calls work the same on curves. In dev, press `C` to show the road's centre line; the console warns if a bend is too sharp to keep lanes on screen.
+
+## Set pieces
+
+Each stretch can list `features` in `src/config.js`, placed by share of the stretch (`at`, plus `to` for zones):
+
+| Type | What it is |
+|---|---|
+| `footbridge`, `bunting` | Overhead foot over-bridge / festoon line (overhead things scroll slightly faster, so they read as higher up) |
+| `zebra` | Zebra crossing with pedestrians walking across |
+| `speedbreaker` | Full-width bump; take it fast and the leguna takes off |
+| `junction` | Cross road with a signal: it turns red as you approach, waiting at the stop line turns it green, crossing on red costs a fine |
+| `avenue` (zone) | Planted median and lawns on the left |
+| `flood` (zone) | Waterlogged road: 70% speed and splashes |
+| `busstand` (zone) | Parked buses and a bus lot on the right |
+
+Potholes and open manholes come from the random spawn mix (`spawn` weights per stretch); the helper warns you when one is coming up in your lane.
 
 ## Where things live
 

@@ -168,6 +168,23 @@ const SFX = {
   },
   // Stand-in for the helper's shout until a voice clip is recorded: "ba-me plas-tic" rhythm
   helper: () => [520, 470, 600, 540].forEach((f, i) => tone('sawtooth', f, f * 0.92, 0.1, 0.07, i * 0.11)),
+  // Front wheels, then back wheels, over a speed breaker
+  thud: () => {
+    for (const w of [0, 0.16]) {
+      tone('sine', 110, 45, 0.18, 0.7, w);
+      noise(0.08, 0.35, 'lowpass', 900, 300, w);
+    }
+  },
+  // Wheel dropping into a pothole: a heavy clunk and a rattle
+  clunk: () => {
+    tone('sine', 90, 35, 0.3, 0.8);
+    noise(0.25, 0.5, 'bandpass', 1400, 300, 0.02);
+    tone('triangle', 900, 700, 0.08, 0.1, 0.05);
+  },
+  ding: () => {
+    tone('sine', 1175, 1175, 0.35, 0.18);
+    tone('sine', 1760, 1760, 0.25, 0.06);
+  },
   bonus: () => {
     tone('square', 1319, 1319, 0.06, 0.08);
     tone('square', 1760, 1760, 0.14, 0.08, 0.06);

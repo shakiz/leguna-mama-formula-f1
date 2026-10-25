@@ -51,6 +51,13 @@ const DRAW = {
     g.fillStyle(0x2b2b2b).fillRoundedRect(20, 182, 96, 10, 3);
   },
 
+  // Same leguna with its brake lights on
+  legunaBrake(g) {
+    DRAW.leguna(g);
+    g.fillStyle(0xff2a2a, 0.35).fillCircle(26, 188, 12).fillCircle(110, 188, 12);
+    g.fillStyle(0xff2a2a).fillRect(18, 183, 16, 9).fillRect(102, 183, 16, 9);
+  },
+
   rickshaw(g) {
     g.fillStyle(0x000000, 0.2).fillEllipse(52, 110, 92, 90);
     g.fillStyle(C.ink).fillRoundedRect(42, 0, 12, 32, 4);
@@ -154,6 +161,99 @@ const DRAW = {
     g.fillStyle(C.yellow).fillCircle(30, 60, 4).fillCircle(70, 30, 4);
   },
 
+  // --- road surface -----------------------------------------------------
+
+  speedbreaker(g) {
+    g.fillStyle(0x000000, 0.3).fillRoundedRect(0, 8, 480, 22, 10);
+    g.fillStyle(C.ink).fillRoundedRect(0, 0, 480, 24, 10);
+    g.fillStyle(C.yellow);
+    for (let x = 6; x < 470; x += 40) g.fillRect(x, 2, 20, 20);
+  },
+
+  pothole(g) {
+    g.fillStyle(0x55555e).fillEllipse(48, 36, 96, 70);
+    g.fillStyle(0x1c1c22).fillEllipse(46, 36, 78, 54).fillEllipse(62, 30, 36, 30);
+    g.fillStyle(0x2c4a66, 0.7).fillEllipse(42, 42, 40, 18);
+    g.fillStyle(0x77777f);
+    for (const [x, y] of [[10, 30], [86, 44], [30, 64], [70, 8], [90, 20]]) g.fillCircle(x, y, 3);
+  },
+
+  // Open manhole with the cover shoved aside (or stolen)
+  manhole(g) {
+    g.fillStyle(0x6a6a72).fillCircle(42, 42, 34);
+    g.fillStyle(0x0c0c10).fillCircle(42, 42, 27);
+    g.fillStyle(0x24242a).fillCircle(46, 46, 16);
+    g.fillStyle(0x8a8a92).fillEllipse(70, 16, 26, 22);
+    g.lineStyle(2, 0x5a5a62).strokeEllipse(70, 16, 26, 22);
+  },
+
+  patch(g) {
+    g.fillStyle(0x42424c, 0.7).fillRect(0, 0, 140, 90);
+    g.lineStyle(2, 0x2e2e36, 0.6).strokeRect(2, 2, 136, 86);
+  },
+
+  crack(g) {
+    g.lineStyle(3, 0x24242b);
+    const pts = [[10, 110], [40, 80], [52, 84], [70, 50], [96, 40], [110, 8]];
+    for (let i = 1; i < pts.length; i++) g.lineBetween(...pts[i - 1], ...pts[i]);
+    g.lineBetween(52, 84, 84, 96).lineBetween(70, 50, 50, 30);
+  },
+
+  // Kept faint on purpose so it never reads as a pothole
+  oil(g) {
+    g.fillStyle(0x15151b, 0.3).fillEllipse(45, 30, 90, 56);
+    g.fillStyle(0x7b4fa8, 0.22).fillEllipse(38, 26, 40, 18);
+    g.fillStyle(0x00a6a6, 0.2).fillEllipse(56, 36, 30, 12);
+    g.fillStyle(0xffd400, 0.12).fillEllipse(46, 22, 24, 8);
+  },
+
+  // --- overhead (drawn above traffic) -------------------------------------
+
+  // Concrete foot over-bridge spanning the road, with stair landings on both pavements
+  footbridge(g) {
+    g.fillStyle(0x8f8f96).fillRect(20, 0, 100, 120).fillRect(640, 0, 100, 120);
+    g.fillStyle(0xa8a8ae).fillRect(0, 32, 760, 58);
+    g.lineStyle(4, 0x5c5c64).lineBetween(0, 34, 760, 34).lineBetween(0, 88, 760, 88);
+    g.lineStyle(2, 0x7a7a82);
+    for (let y = 8; y < 120; y += 14) g.lineBetween(24, y, 116, y).lineBetween(644, y, 736, y);
+    const rnd = new Phaser.Math.RandomDataGenerator(['bridge']);
+    for (let i = 0; i < 14; i++) {
+      g.fillStyle(rnd.pick([C.red, C.teal, C.blue, C.magenta, 0xf28c28])).fillCircle(rnd.between(140, 620), rnd.between(46, 76), 7);
+      g.fillStyle(0x1a1a1a).fillCircle(rnd.between(140, 620), rnd.between(46, 76), 5);
+    }
+  },
+
+  // Dhaka's famous tangle of electric and cable lines, sagging across the street
+  wires(g) {
+    const sag = (x, y0, depth) => y0 + depth * (1 - ((2 * x) / 900 - 1) ** 2);
+    for (const [y0, depth, width] of [[6, 30, 3], [14, 22, 2], [4, 40, 2], [20, 18, 3]]) {
+      g.lineStyle(width, 0x1c1c1c, 0.85);
+      for (let x = 0; x < 900; x += 30) g.lineBetween(x, sag(x, y0, depth), x + 30, sag(x + 30, y0, depth));
+    }
+    g.lineStyle(2, 0x1c1c1c, 0.85).strokeCircle(320, 40, 9).strokeCircle(560, 44, 7).strokeCircle(574, 40, 6);
+  },
+
+  bunting(g) {
+    const sag = (x) => 6 + 26 * (1 - ((2 * x) / 900 - 1) ** 2);
+    g.lineStyle(2, 0x333333);
+    for (let x = 0; x < 900; x += 30) g.lineBetween(x, sag(x), x + 30, sag(x + 30));
+    const colors = [C.magenta, C.yellow, C.teal, C.red, C.green];
+    for (let x = 10, i = 0; x < 890; x += 34, i++) {
+      const y = sag(x + 10);
+      g.fillStyle(colors[i % colors.length]).fillTriangle(x, y, x + 22, y, x + 11, y + 22);
+    }
+  },
+
+  // Traffic signal head on its pole, seen from above; the lit lamp is a separate circle on top
+  signal(g) {
+    g.fillStyle(0x000000, 0.25).fillCircle(16, 38, 10);
+    g.fillStyle(0x55555c).fillCircle(14, 34, 9).fillRect(14, 28, 40, 10);
+    g.fillStyle(0x1a1a1e).fillRoundedRect(44, 8, 24, 62, 6);
+    g.fillStyle(0x3a1414).fillCircle(56, 20, 7);
+    g.fillStyle(0x3a3214).fillCircle(56, 39, 7);
+    g.fillStyle(0x143a1c).fillCircle(56, 58, 7);
+  },
+
   // Tea stall: striped awning, kettle and a bench
   stall(g) {
     g.fillStyle(0x000000, 0.2).fillRect(10, 12, 92, 110);
@@ -164,10 +264,22 @@ const DRAW = {
   },
 };
 
+// Pedestrians in a couple of outfits
+function person(g, shirt, hair) {
+  g.fillStyle(0x000000, 0.2).fillEllipse(30, 34, 50, 30);
+  g.fillStyle(shirt).fillEllipse(28, 30, 48, 24);
+  g.lineStyle(6, 0x6b3e26).lineBetween(8, 30, 2, 46).lineBetween(48, 30, 54, 14);
+  g.fillStyle(hair).fillCircle(28, 26, 12);
+}
+DRAW.ped0 = (g) => person(g, C.blue, C.ink);
+DRAW.ped1 = (g) => person(g, C.magenta, 0x3a2a1a);
+
 const SIZES = {
   leguna: [136, 198], rickshaw: [96, 160], cng: [104, 164], bus: [146, 332], car: [110, 182],
   police: [116, 116], cow: [92, 170], hawker: [90, 90], puddle: [170, 110], passenger: [84, 96],
-  tree: [100, 100], stall: [104, 124],
+  tree: [100, 100], stall: [104, 124], legunaBrake: [136, 198],
+  speedbreaker: [480, 30], pothole: [96, 72], manhole: [84, 84], patch: [140, 90], crack: [120, 120], oil: [90, 60],
+  footbridge: [760, 120], wires: [900, 70], bunting: [900, 60], signal: [72, 72], ped0: [60, 56], ped1: [60, 56],
 };
 
 // Top-down Dhaka rooftops for the strip beyond the pavement: parapet, stair room, the black water

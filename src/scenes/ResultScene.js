@@ -15,7 +15,7 @@ export default class ResultScene extends Phaser.Scene {
   }
 
   create() {
-    const { time, fare, crashes, closeCalls, isBest } = this.result;
+    const { time, fare, crashes, closeCalls, fines, isBest } = this.result;
     this.add.tileSprite(W / 2, H / 2, W, H, 'road');
     this.add.rectangle(W / 2, H / 2, W, H, COLORS.ink, 0.5);
 
@@ -35,10 +35,11 @@ export default class ResultScene extends Phaser.Scene {
       [`🪙 ${t('fare')}`, `৳ ${num(fare)}`],
       [`😮‍💨 ${t('closeCalls')}`, num(closeCalls)],
       [`💥 ${t('crashes')}`, num(crashes)],
+      ...(fines ? [[`👮 ${t('fine')}`, `৳ ${num(fines)}`]] : []),
       [`🏆 ${t('best')}`, `${fmtTime(load('best', time))} ${t('sec')}`],
     ];
     rows.forEach(([k, v], i) => {
-      const y = 700 + i * 52;
+      const y = 690 + i * (rows.length > 4 ? 46 : 52);
       text(this, 120, y, k, 34, CSS.ink).setOrigin(0, 0.5);
       text(this, W - 120, y, v, 34, CSS.magenta).setOrigin(1, 0.5);
     });
