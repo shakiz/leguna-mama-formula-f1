@@ -4,7 +4,7 @@ import {
   BASE_SPEED, ACCEL, ROUTE_LENGTH, KINDS, STRETCHES, FARE_PER_PASSENGER, CLOSE_MARGIN, CLOSE_BONUS, COLORS, CSS,
   BRAKE_DECEL, RED_LIGHT_FINE, JUNCTION, VIP,
 } from '../config.js';
-import { pick, fmtTime, num } from '../i18n.js';
+import { pick, fmtTime, num, t } from '../i18n.js';
 import {
   startMusic, stopMusic, isMuted, setMuted, startEngine, setEngine, stopEngine, setAmbience, stopAmbience, vibrate,
 } from '../audio/sfx.js';
@@ -125,6 +125,7 @@ export default class GameScene extends Phaser.Scene {
     this.vip = null;
     this.vipPending = null;
     this.sinceVip = 0;
+    this.brakeHinted = false;
 
     this.player = this.add.image(0, 0, 'leguna').setDepth(20);
     this.player.rx = laneX(1);
@@ -592,6 +593,11 @@ export default class GameScene extends Phaser.Scene {
         this.setSignal('red');
         j.timer = 7;
         this.fireEvent('signal_red', { forceMeme: true });
+        // The helper shouts to stop; the first red light of a run also shows how to brake
+        if (!this.brakeHinted) {
+          this.brakeHinted = true;
+          this.showHint(t(this.sys.game.device.input.touch ? 'brakeHint' : 'brakeHintKeys'));
+        }
       }
     } else if (j.state === 'red') {
       j.timer -= dt;
@@ -1031,6 +1037,26 @@ export default class GameScene extends Phaser.Scene {
     this.calloutLabel = label;
     this.tweens.add({ targets: label, scale: 1, duration: 140, ease: 'Back.easeOut' });
     this.tweens.add({ targets: label, alpha: 0, delay: 750, duration: 200, onComplete: () => label.destroy() });
+  }
+
+  // A control hint in the middle of the road, above the traffic: drawn by the HUD camera, so it stays
+  // level and clear of the HUD bar, the helper's callouts (under the leguna) and meme popups (at the top)
+  showHint(str) {
+    this.hint?.destroy();
+    const c = this.add.container(W / 2, PLAYER_Y - 330).setDepth(58);
+    const label = text(this, 0, 0, str, 38, CSS.cream, { stroke: CSS.ink, strokeThickness: 6 }).setOrigin(0.5);
+    const w = label.width + 64;
+    const h = label.height + 30;
+    const g = this.add.graphics();
+    g.fillStyle(COLORS.ink, 0.8).fillRoundedRect(-w / 2, -h / 2, w, h, h / 2);
+    g.lineStyle(4, COLORS.yellow).strokeRoundedRect(-w / 2, -h / 2, w, h, h / 2);
+    c.add([g, label]);
+    this.toHud(c);
+    c.setAlpha(0);
+    this.hint = c;
+    this.tweens.add({ targets: c, alpha: 1, duration: 200 });
+    this.tweens.add({ targets: c, y: c.y + 14, duration: 380, yoyo: true, repeat: 3, ease: 'Sine.easeInOut' });
+    this.tweens.add({ targets: c, alpha: 0, delay: 3000, duration: 300, onComplete: () => c.destroy() });
   }
 
   showBubble(str) {

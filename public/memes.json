@@ -224,8 +224,8 @@
     },
     "signal_red": {
       "caption": {
-        "bn": "নিচে সোয়াইপ = ব্রেক ⬇️",
-        "en": "Swipe down = brake ⬇️"
+        "bn": "লাল বাতি! থামেন মামা!",
+        "en": "Red light! Stop, Mama!"
       },
       "sfx": [
         "ding",
