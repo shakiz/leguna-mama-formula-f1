@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import {
   W, H, ROAD_X, ROAD_W, LANES, LANE_W, laneX, PLAYER_Y, HUD_H,
   BASE_SPEED, ACCEL, ROUTE_LENGTH, KINDS, STRETCHES, FARE_PER_PASSENGER, CLOSE_MARGIN, CLOSE_BONUS, COLORS, CSS,
-  BRAKE_DECEL, RED_LIGHT_FINE, JUNCTION,
+  BRAKE_DECEL, RED_LIGHT_FINE, JUNCTION, VIP,
 } from '../config.js';
 import { pick, fmtTime, num } from '../i18n.js';
 import {
@@ -34,6 +34,10 @@ const LEAN_RATE = 3; // per second
 // Speed streaks fade in from just under cruising speed and are at full strength with the avenue's bonus
 const STREAK_FROM = BASE_SPEED * 0.95;
 const STREAK_FULL = BASE_SPEED * 1.25;
+// The VIP brakes for slower traffic it sees within VIP_LOOK px ahead in its lane
+const VIP_LOOK = 300;
+const VIP_BRAKE = 1200; // px/s²
+const VIP_ACCEL = 500; // px/s²
 
 const nearJunction = (d) => features.some((f) => f.type === 'junction' && Math.abs(d - f.d) < JUNCTION.clear);
 
@@ -93,6 +97,8 @@ export default class GameScene extends Phaser.Scene {
     this.finished = false;
     this.finishBanner = false;
     this.lastMemeAt = -Infinity;
+    this.vip = null;
+    this.sinceVip = 0;
 
     this.player = this.add.image(0, 0, 'leguna').setDepth(20);
     this.player.rx = laneX(1);
@@ -150,6 +156,10 @@ export default class GameScene extends Phaser.Scene {
         const lane = e.shiftKey ? (this.lane === LANES - 1 ? this.lane - 1 : this.lane + 1) : this.lane;
         this.spawn(kind, lane);
       });
+      // V sends a VIP up your lane (Shift+V: the next lane), skipping the fairness checks
+      kb.on('keydown-V', (e) => {
+        if (!this.vip) this.startVip(e.shiftKey ? (this.lane === LANES - 1 ? this.lane - 1 : this.lane + 1) : this.lane);
+      });
       // C toggles a line down the middle of the road, for tuning bends
       kb.on('keydown-C', () => {
         this.road.showCentre = !this.road.showCentre;
@@ -197,10 +207,15 @@ export default class GameScene extends Phaser.Scene {
   // once the vehicle is outside the close zone; crashing into it before then cancels the payout.
   checkNearMiss(fromLane, dir) {
     const playerTop = PLAYER_Y - this.player.displayHeight / 2;
+    const playerBottom = PLAYER_Y + this.player.displayHeight / 2;
     for (const o of this.things) {
       if (!o.kind || o.done || o.lane !== fromLane || !KINDS[o.kind].solid) continue;
       const bottom = o.ry + o.displayHeight / 2;
-      if (bottom <= playerTop - 150 || bottom >= playerTop + 10) continue;
+      const ahead = bottom > playerTop - 150 && bottom < playerTop + 10;
+      // Overtakers (the VIP) come from behind: there it's their front closing on our back
+      const top = o.ry - o.displayHeight / 2;
+      const behind = o.overtake && top > playerBottom - 10 && top < playerBottom + 150;
+      if (!ahead && !behind) continue;
       if (!o.close) this.fireEvent(dir > 0 ? 'helper_left' : 'helper_right', { meme: false });
       o.close = 'closeturn';
     }
@@ -220,7 +235,7 @@ export default class GameScene extends Phaser.Scene {
     const inZone = gapX < marginX && gapY < CLOSE_MARGIN;
     if (inZone && !o.close) {
       o.close = 'close';
-      const side = Math.abs(dx) < 40 ? 'ahead' : dx < 0 ? 'left' : 'right';
+      const side = Math.abs(dx) < 40 ? (o.overtake ? 'behind' : 'ahead') : dx < 0 ? 'left' : 'right';
       this.fireEvent(`helper_${side}`, { meme: false });
     } else if (!inZone && o.close && !o.closePaid) {
       o.closePaid = true;
@@ -289,7 +304,8 @@ export default class GameScene extends Phaser.Scene {
     const def = KINDS[kind];
     const vy = def.vy * Phaser.Math.FloatBetween(0.85, 1.15);
     // Never approach faster than whatever is already ahead in the lane, so sprites don't overlap
-    const laneVy = (l) => this.things.reduce((v, o) => (o.kind && o.lane === l ? Math.max(v, o.vy) : v), vy);
+    // (the VIP is the exception: it comes from behind and overtakes everything)
+    const laneVy = (l) => this.things.reduce((v, o) => (o.kind && !o.overtake && o.lane === l ? Math.max(v, o.vy) : v), vy);
     let lane = forceLane;
     if (lane === undefined) {
       const nearTop = this.things.filter((o) => o.kind && o.ry < 220);
@@ -327,6 +343,11 @@ export default class GameScene extends Phaser.Scene {
   closesRoad(lane, h, vy) {
     const win = this.blockWindow(SPAWN_Y, h, vy);
     if (!win) return false;
+    // While a VIP is on its way, nothing new may reach the leguna's row as it passes: dodging the VIP
+    // must never mean dodging into something else
+    const v = this.vip;
+    const now = this.time.now / 1000;
+    if (v && !v.passed && win[0] < v.until - now && win[1] > v.from - now) return true;
     const [a, b] = [0, 1, 2].filter((l) => l !== lane).map((l) => this.things
       .filter((o) => o.kind && !o.done && !o.vx && o.lane === l && KINDS[o.kind].solid)
       .map((o) => this.blockWindow(o.ry, o.displayHeight, o.vy))
@@ -469,6 +490,157 @@ export default class GameScene extends Phaser.Scene {
   junctionAhead() {
     const j = this.junction;
     return j && !j.cycled && j.dj - this.distance < 2600;
+  }
+
+  // --- VIP -----------------------------------------------------------------
+  // A black SUV with a siren comes up from behind and overtakes. A warning shows in its lane at the
+  // bottom of the screen VIP.lead s before it is spawned below the screen; stay in that lane and it
+  // rear-ends you.
+
+  // When (s after the warning) the VIP is in the leguna's row, if the leguna holds cruising speed
+  vipWindow() {
+    const reach = (this.textures.getFrame('vip').height + this.player.displayHeight) / 2 + FAIR_MARGIN;
+    const toPlayer = H + VIP.spawnBelow - PLAYER_Y;
+    return [VIP.lead + (toPlayer - reach) / VIP.boost, VIP.lead + (toPlayer + reach) / VIP.boost];
+  }
+
+  // Lanes a VIP may use now: nothing solid in it from a little ahead of the leguna down to below the
+  // screen (it would have to queue behind that and never overtake), the other two lanes are never both
+  // blocked while it passes, and if it's the leguna's lane, a lane next to it stays clear until then
+  vipLanes() {
+    const [from, to] = this.vipWindow();
+    const solids = this.things.filter((o) => o.kind && !o.done && !o.vx && o.lane >= 0 && KINDS[o.kind].solid);
+    const wins = [0, 1, 2].map((l) => solids
+      .filter((o) => o.lane === l)
+      .map((o) => this.blockWindow(o.ry, o.displayHeight, o.vy))
+      .filter(Boolean));
+    const freeOver = (l, a, b) => !wins[l].some((w) => w[0] < b && w[1] > a);
+    return [0, 1, 2].filter((lane) => {
+      if (solids.some((o) => o.lane === lane && o.ry > PLAYER_Y - 400)) return false;
+      const [a, b] = [0, 1, 2].filter((l) => l !== lane);
+      if (wins[a].some((wa) => wins[b].some((wb) => Math.max(from, wa[0], wb[0]) < Math.min(to, wa[1], wb[1])))) return false;
+      return lane !== this.lane || [lane - 1, lane + 1].some((l) => l >= 0 && l < LANES && freeOver(l, 0, to));
+    });
+  }
+
+  // forceLane skips the fairness checks (dev key V)
+  startVip(forceLane) {
+    let lane = forceLane;
+    if (lane === undefined) {
+      const lanes = this.vipLanes();
+      if (!lanes.length) return;
+      // Coming for our lane half the time when that's fair: making way is the whole point
+      lane = lanes.includes(this.lane) && Math.random() < 0.5 ? this.lane : Phaser.Utils.Array.GetRandom(lanes);
+    }
+    const [from, to] = this.vipWindow();
+    const now = this.time.now / 1000;
+    this.vip = { lane, t: 0, car: null, inLane: lane === this.lane, passed: false, from: now + from, until: now + to };
+    this.vip.warn = this.vipWarning();
+    this.fireEvent('vip_spotted', { meme: false });
+  }
+
+  // Flashing siren badge at the bottom of the screen, in the lane the VIP will come up
+  vipWarning() {
+    const c = this.add.container(0, H - 46).setDepth(56);
+    const pill = (color) => this.add.graphics()
+      .fillStyle(0x000000, 0.35).fillRoundedRect(-64, -26, 136, 60, 30)
+      .fillStyle(color).fillRoundedRect(-68, -30, 136, 60, 30)
+      .lineStyle(4, COLORS.white).strokeRoundedRect(-68, -30, 136, 60, 30);
+    c.red = pill(0xe02020);
+    c.blue = pill(0x1f5fff);
+    const label = text(this, 0, 0, '▲ 🚨 ▲', 30, '#ffffff', { stroke: CSS.ink, strokeThickness: 5 }).setOrigin(0.5);
+    c.add([c.red, c.blue, label]);
+    return this.toHud(c);
+  }
+
+  updateVip(dt, dy) {
+    const v = this.vip;
+    if (!v) {
+      if (this.finished || this.distance > ROUTE_LENGTH - FINISH_BANNER_LEAD - 2000) return;
+      this.sinceVip += dy;
+      if (this.sinceVip < VIP.roll) return;
+      this.sinceVip = 0;
+      const cruise = BASE_SPEED * (STRETCHES[this.stretchIdx].speedBonus ?? 1);
+      // Not around the signal, or while the leguna is crawling (it would arrive with no time to react)
+      if (Math.random() < (STRETCHES[this.stretchIdx].vip ?? 0) && !this.junction && this.speed > cruise * 0.7) this.startVip();
+      return;
+    }
+    v.t += dt;
+    const now = this.time.now / 1000;
+    if (!v.passed) v.until = Math.max(v.until, now + 0.3);
+    if (!v.car && v.t >= VIP.lead) {
+      const car = this.makeThing('vip', laneX(v.lane), H + VIP.spawnBelow, v.lane);
+      car.fast = car.vy = BASE_SPEED * (STRETCHES[this.stretchIdx].speedBonus ?? 1) + VIP.boost;
+      car.overtake = true;
+      v.car = car;
+    }
+    const flash = Math.floor(v.t * 7) % 2;
+    if (v.warn) {
+      v.warn.x = laneX(v.lane) + this.offAt(v.warn.y);
+      v.warn.red.visible = !flash;
+      v.warn.blue.visible = !!flash;
+      v.warn.setScale(1 + 0.08 * Math.sin(v.t * 14));
+      // Gone once the VIP itself is in view
+      if (v.car && v.car.ry - v.car.displayHeight / 2 < H - 40) {
+        v.warn.destroy();
+        v.warn = null;
+      }
+    }
+    const car = v.car;
+    if (!car) return;
+    if (!car.scene) {
+      // Driven off the top (or dropped off the bottom behind traffic): a breather before the next one
+      this.vip = null;
+      this.sinceVip = -VIP.roll * 2;
+      v.warn?.destroy();
+      return;
+    }
+    car.setTexture(flash ? 'vipFlash' : 'vip');
+    this.driveVip(car, dt);
+    if (!v.passed && car.ry + car.displayHeight / 2 < PLAYER_Y - this.player.displayHeight / 2) {
+      v.passed = true;
+      // Moved out of its lane in good time (a last-moment swerve is a closeturn instead)
+      if (v.inLane && !car.done && !car.close && !this.finished) {
+        this.fare += VIP.bonus;
+        this.floatText(`+৳${num(VIP.bonus)}`, this.player.x, PLAYER_Y - 120, CSS.cream);
+        this.fireEvent('vip_gaveway');
+      }
+    }
+  }
+
+  // Full speed up its lane; for slower traffic ahead it changes lane once if there's room (never into
+  // the leguna's lane until it's well past), otherwise it brakes and queues
+  driveVip(car, dt) {
+    let ahead = null;
+    let gap = Infinity;
+    for (const o of this.things) {
+      if (o === car || !o.kind || o.done || o.lane !== car.lane || o.ry >= car.ry || !KINDS[o.kind].solid) continue;
+      const g = car.ry - o.ry - (car.displayHeight + o.displayHeight) / 2;
+      if (g < gap) {
+        gap = g;
+        ahead = o;
+      }
+    }
+    if (!ahead || gap > VIP_LOOK) {
+      car.vy = Math.min(car.fast, car.vy + VIP_ACCEL * dt);
+      return;
+    }
+    if (!car.switched) {
+      const past = car.ry + car.displayHeight / 2 < PLAYER_Y - this.player.displayHeight / 2 - 150;
+      const to = Phaser.Utils.Array.Shuffle([car.lane - 1, car.lane + 1]).find((l) => l >= 0 && l < LANES
+        && (l !== this.lane || past)
+        && !this.things.some((o) => o !== car && o.kind && !o.done && o.lane === l && KINDS[o.kind].solid
+          && Math.abs(o.ry - car.ry) < (o.displayHeight + car.displayHeight) / 2 + 260));
+      if (to !== undefined) {
+        car.switched = true;
+        const dir = Math.sign(to - car.lane);
+        car.lane = to;
+        this.tweens.add({ targets: car, rx: laneX(to), duration: 450, ease: 'Sine.easeInOut' });
+        this.tweens.add({ targets: car, tilt: dir * 8, duration: 225, yoyo: true });
+        return;
+      }
+    }
+    car.vy = gap < 40 ? Math.min(car.vy, ahead.vy) : Math.max(ahead.vy, car.vy - VIP_BRAKE * dt);
   }
 
   spawnDecor(ry = -140) {
@@ -703,6 +875,7 @@ export default class GameScene extends Phaser.Scene {
       this.spawnFeature(features[this.featureIdx++]);
     }
     this.updateJunction(dt);
+    this.updateVip(dt, dy);
 
     if (!this.finished && this.distance < ROUTE_LENGTH - FINISH_BANNER_LEAD) {
       this.sinceSpawn += dy;

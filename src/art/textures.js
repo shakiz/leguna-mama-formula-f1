@@ -148,6 +148,11 @@ const DRAW = {
     g.fillStyle(0xfff7b0).fillCircle(16, 8, 6).fillCircle(88, 8, 6);
   },
 
+  // VIP SUV: glossy black, tinted glass, a small generic pennant on the bonnet and a light bar on the
+  // roof. Two frames (vip, vipFlash) swap which side of the light bar is lit, so the lights flash.
+  vip: (g) => vipCar(g, 0),
+  vipFlash: (g) => vipCar(g, 1),
+
   // Traffic-police umbrella stand, seen from above
   police(g) {
     g.fillStyle(0x000000, 0.25).fillCircle(60, 62, 52);
@@ -306,6 +311,33 @@ const DRAW = {
   },
 };
 
+function vipCar(g, phase) {
+  g.fillStyle(0x000000, 0.3).fillRoundedRect(8, 8, 108, 188, 18);
+  g.fillStyle(0x121218).fillRoundedRect(2, 0, 108, 188, 18);
+  // body sheen along both sides, chrome grille and headlights at the front
+  g.fillStyle(0x2c2c36).fillRect(6, 24, 4, 140).fillRect(102, 24, 4, 140);
+  g.fillStyle(0x9a9aa6).fillRoundedRect(30, 2, 52, 6, 2);
+  g.fillStyle(0xf4f4ff).fillRoundedRect(8, 4, 18, 8, 3).fillRoundedRect(86, 4, 18, 8, 3);
+  // pennant on a short staff on the front left wing: plain gold with a cream stripe, no real flag
+  g.lineStyle(3, 0xd0d0d8).lineBetween(16, 34, 16, 6);
+  g.fillStyle(0xe0b020).fillTriangle(17, 6, 42, 13, 17, 21);
+  g.fillStyle(C.cream).fillRect(17, 12, 13, 3);
+  // tinted windscreen, roof with rails, rear glass
+  g.fillStyle(0x050508).fillRoundedRect(12, 42, 88, 30, 9);
+  g.fillStyle(0x5a6a80, 0.35).fillRoundedRect(18, 45, 30, 6, 3);
+  g.fillStyle(0x1b1b23).fillRoundedRect(12, 74, 88, 82, 8);
+  g.fillStyle(0x3a3a44).fillRect(16, 78, 4, 74).fillRect(92, 78, 4, 74);
+  g.fillStyle(0x050508).fillRoundedRect(16, 158, 80, 20, 6);
+  g.fillStyle(0xb01818).fillRect(6, 180, 18, 6).fillRect(88, 180, 18, 6);
+  // light bar: the lit half glows
+  const [lit, hi, cx] = phase ? [0x2f6bff, 0xa8c4ff, 74] : [0xff2020, 0xffa0a0, 38];
+  g.fillStyle(0x2a2a30).fillRoundedRect(16, 88, 80, 22, 7);
+  g.fillStyle(phase ? 0x4a0d0d : 0xff2020).fillRoundedRect(19, 91, 36, 16, 5);
+  g.fillStyle(phase ? 0x2f6bff : 0x10204a).fillRoundedRect(57, 91, 36, 16, 5);
+  g.fillStyle(lit, 0.3).fillCircle(cx, 99, 34);
+  g.fillStyle(hi).fillRoundedRect(cx - 10, 95, 20, 7, 3);
+}
+
 // Pedestrians in a couple of outfits
 function person(g, shirt, hair) {
   g.fillStyle(0x000000, 0.2).fillEllipse(30, 34, 50, 30);
@@ -317,7 +349,7 @@ DRAW.ped0 = (g) => person(g, C.blue, C.ink);
 DRAW.ped1 = (g) => person(g, C.magenta, 0x3a2a1a);
 
 const SIZES = {
-  leguna: [136, 198], rickshaw: [96, 160], cng: [104, 164], bus: [146, 332], brtc: [150, 384], car: [110, 182],
+  leguna: [136, 198], rickshaw: [96, 160], cng: [104, 164], bus: [146, 332], brtc: [150, 384], car: [110, 182], vip: [116, 196], vipFlash: [116, 196],
   police: [116, 116], cow: [92, 170], hawker: [90, 90], puddle: [170, 110], passenger: [84, 96],
   tree: [100, 100], stall: [104, 124], legunaBrake: [136, 198],
   speedbreaker: [480, 30], pothole: [96, 72], manhole: [84, 84], patch: [140, 90], crack: [120, 120], oil: [90, 60],

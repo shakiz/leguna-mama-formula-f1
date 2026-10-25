@@ -90,6 +90,14 @@
       "sfx": "helper",
       "cooldown": 900
     },
+    "helper_behind": {
+      "caption": {
+        "bn": "পেছনে প্লাস্টিক!",
+        "en": "Plastic behind!"
+      },
+      "sfx": "helper",
+      "cooldown": 900
+    },
     "spawn_rickshaw": {
       "sfx": "bell",
       "chance": 0.35
@@ -268,6 +276,59 @@
     },
     "brtc_honk": {
       "sfx": "airhorn",
+      "cooldown": 1500
+    },
+    "vip_spotted": {
+      "audio": [
+        "audio/clips/are-era-kara.mp3"
+      ],
+      "sfx": "whistle",
+      "caption": {
+        "bn": "পেছনে সাইরেন! সাইড দেন!",
+        "en": "Siren behind! Give way!"
+      },
+      "cooldown": 4000,
+      "chain": [
+        {
+          "event": "vip_siren",
+          "delay": 0
+        }
+      ]
+    },
+    "vip_siren": {
+      "sfx": "siren",
+      "cooldown": 3000
+    },
+    "close_vip": {
+      "sfx": [
+        "bonus",
+        "whoosh"
+      ],
+      "cooldown": 1500
+    },
+    "closeturn_vip": {
+      "sfx": [
+        "bonus",
+        "whoosh"
+      ],
+      "cooldown": 1500
+    },
+    "crash_vip": {
+      "sfx": "bigcrash",
+      "vibrate": [
+        120,
+        60,
+        220
+      ],
+      "chain": [
+        {
+          "event": "bump_honk",
+          "delay": 600
+        }
+      ]
+    },
+    "vip_gaveway": {
+      "sfx": "coin",
       "cooldown": 1500
     }
   },
@@ -577,6 +638,70 @@
       {
         "bn": "দোতলা থেকে সবাই ভিডিও করতেসে 📱",
         "en": "The whole upper deck is filming this 📱"
+      }
+    ],
+    "close_vip": [
+      {
+        "bn": "ভিআইপি যায়, সাইড দেন!",
+        "en": "VIP coming, give way!"
+      },
+      {
+        "bn": "প্রটোকল মামা, প্রটোকল!",
+        "en": "Protocol, Mama, protocol!"
+      },
+      {
+        "bn": "কালো কাঁচের ভেতরে কে, কেউ জানে না 🕶️",
+        "en": "Who's behind the black glass? Nobody knows 🕶️"
+      },
+      {
+        "bn": "রাস্তা ওনাদের, জ্যাম আমাদের",
+        "en": "The road is theirs, the jam is ours"
+      }
+    ],
+    "closeturn_vip": [
+      {
+        "bn": "ভিআইপি যায়, সাইড দেন!",
+        "en": "VIP coming, give way!"
+      },
+      {
+        "bn": "প্রটোকল মামা, প্রটোকল!",
+        "en": "Protocol, Mama, protocol!"
+      },
+      {
+        "bn": "আরেকটু হলে আমরাও প্রটোকলে ঢুকে যাইতাম 😅",
+        "en": "One more inch and we'd have joined the motorcade 😅"
+      },
+      {
+        "bn": "সাইরেন শুনলেই সাইড, এইটাই ঢাকার নিয়ম!",
+        "en": "Hear a siren, move aside: the first rule of Dhaka!"
+      }
+    ],
+    "crash_vip": [
+      {
+        "bn": "আপনি জানেন উনি কে?",
+        "en": "Do you know who that is?"
+      },
+      {
+        "bn": "ভিআইপির গাড়িতে ধাক্কা! আজকে থানায় চা খাইতে হবে ☕",
+        "en": "Bumped the VIP! Tea at the police station tonight ☕"
+      },
+      {
+        "bn": "লেগুনার কাগজপত্র সব ঠিক আছে তো মামা? 📄",
+        "en": "Mama, are the leguna's papers all in order? 📄"
+      }
+    ],
+    "vip_gaveway": [
+      {
+        "bn": "ভদ্র ড্রাইভার, সাইড দিসে 👍",
+        "en": "A polite driver: gave way 👍"
+      },
+      {
+        "bn": "যান স্যার, যান! আমরা তো পরেই যাই",
+        "en": "Go ahead, sir! We always go after"
+      },
+      {
+        "bn": "প্রটোকল পাস! এবার টান দেন মামা",
+        "en": "Protocol cleared! Now floor it, Mama"
       }
     ]
   }

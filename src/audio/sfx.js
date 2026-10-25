@@ -230,6 +230,30 @@ const SFX = {
     tone('triangle', 620, 430, 0.5, 0.14, 0.05);
     tone('triangle', 910, 650, 0.35, 0.08, 0.08);
   },
+  // VIP siren: a two-tone wail rising and falling, swelling in from behind and fading as it drives off
+  siren: () => {
+    const t = ctx.currentTime;
+    const dur = 3.6;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.001, t);
+    g.gain.exponentialRampToValueAtTime(0.11, t + 0.5);
+    g.gain.setValueAtTime(0.11, t + 2.2);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 2600;
+    f.connect(g).connect(master);
+    // Two voices a major third apart, so it reads as a siren rather than a single whistle
+    for (const [type, k] of [['sawtooth', 1], ['square', 1.26]]) {
+      const o = ctx.createOscillator();
+      o.type = type;
+      o.frequency.setValueAtTime(600 * k, t);
+      for (let w = 0, up = true; w < dur; w += 0.45, up = !up) o.frequency.linearRampToValueAtTime((up ? 980 : 600) * k, t + w + 0.45);
+      o.connect(f);
+      o.start(t);
+      o.stop(t + dur + 0.05);
+    }
+  },
   bonus: () => {
     tone('square', 1319, 1319, 0.06, 0.08);
     tone('square', 1760, 1760, 0.14, 0.08, 0.06);
