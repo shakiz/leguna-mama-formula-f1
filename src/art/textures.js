@@ -13,29 +13,42 @@ export function flower(g, cx, cy, r, petal = C.magenta, center = C.yellow) {
   g.fillCircle(cx, cy, r * 0.42);
 }
 
+// The leguna's painted decal: three red/orange petals on an orange stem with green leaves
+function motif(g, cx, cy, k = 1) {
+  g.fillStyle(C.green).fillEllipse(cx - 7 * k, cy + 6 * k, 10 * k, 5 * k).fillEllipse(cx + 7 * k, cy + 6 * k, 10 * k, 5 * k);
+  g.lineStyle(2 * k, 0xf28c28).lineBetween(cx, cy - 2 * k, cx, cy + 10 * k);
+  g.fillStyle(C.red).fillEllipse(cx, cy - 7 * k, 5 * k, 11 * k);
+  g.fillStyle(0xf28c28).fillEllipse(cx - 5 * k, cy - 3 * k, 5 * k, 9 * k).fillEllipse(cx + 5 * k, cy - 3 * k, 5 * k, 9 * k);
+}
+
 function stripeDots(g, x, y, w, color) {
   g.fillStyle(color);
   for (let i = x + 6; i < x + w - 4; i += 12) g.fillCircle(i, y, 3);
 }
 
 const DRAW = {
+  // Top-down version of src/art/leguna-side.webp: yellow roof with rolled canvas sides,
+  // cream body with red/orange stripes, green skirt and the floral decal
   leguna(g) {
-    g.fillStyle(0x000000, 0.25).fillRoundedRect(6, 8, 116, 186, 24);
-    g.fillStyle(C.green).fillRoundedRect(0, 0, 120, 190, 22);
-    g.fillStyle(C.yellow).fillRoundedRect(8, 2, 104, 10, 5);
-    g.fillStyle(0xfff7b0).fillCircle(20, 8, 7).fillCircle(100, 8, 7);
-    g.fillStyle(C.ink).fillRoundedRect(14, 18, 92, 40, 10);
-    g.fillStyle(0x5c7ea8, 0.6).fillRoundedRect(20, 22, 40, 14, 6);
-    // roof with rickshaw-art panel
-    g.fillStyle(C.teal).fillRoundedRect(10, 64, 100, 102, 12);
-    g.lineStyle(5, C.magenta).strokeRoundedRect(14, 68, 92, 94, 10);
-    flower(g, 60, 115, 22, C.magenta, C.yellow);
-    flower(g, 30, 86, 9, C.yellow, C.red);
-    flower(g, 90, 144, 9, C.yellow, C.red);
-    stripeDots(g, 10, 172, 100, C.yellow);
-    // open rear with grab rail
-    g.fillStyle(C.yellow).fillRoundedRect(10, 178, 100, 8, 4);
-    g.fillStyle(C.red).fillRect(0, 70, 5, 90).fillRect(115, 70, 5, 90);
+    g.fillStyle(0x000000, 0.25).fillRoundedRect(14, 10, 120, 186, 20);
+    g.fillStyle(0xf3e6cc).fillRoundedRect(8, 4, 120, 186, 18);
+    g.fillStyle(C.red).fillRect(8, 64, 5, 112).fillRect(123, 64, 5, 112);
+    g.fillStyle(0xf28c28).fillRect(8, 64, 5, 40).fillRect(123, 64, 5, 40);
+    g.fillStyle(C.green).fillRoundedRect(10, 0, 116, 14, 6);
+    g.fillStyle(0xff9a1f).fillRect(13, 3, 10, 7).fillRect(113, 3, 10, 7);
+    g.fillStyle(0x23466e).fillRoundedRect(16, 16, 104, 26, 8);
+    g.fillStyle(0x7fa8d6, 0.6).fillRoundedRect(22, 19, 36, 8, 4);
+    g.fillStyle(C.ink).fillRoundedRect(0, 30, 10, 14, 3).fillRoundedRect(126, 30, 10, 14, 3);
+    g.fillStyle(0xf0b000).fillRoundedRect(13, 40, 110, 140, 10);
+    g.fillStyle(0xffcf2e).fillRoundedRect(19, 44, 98, 132, 8);
+    g.lineStyle(2, 0xe0a200);
+    for (const y of [82, 122, 152]) g.lineBetween(30, y, 106, y);
+    g.fillStyle(0xd9c7a6).fillRoundedRect(13, 50, 14, 124, 7).fillRoundedRect(109, 50, 14, 124, 7);
+    g.fillStyle(0x3a3a3a);
+    for (const y of [66, 100, 134, 160]) g.fillRect(13, y, 14, 4).fillRect(109, y, 14, 4);
+    motif(g, 68, 104, 1.6);
+    g.fillStyle(C.green).fillRect(14, 178, 108, 6);
+    g.fillStyle(0x2b2b2b).fillRoundedRect(20, 182, 96, 10, 3);
   },
 
   rickshaw(g) {
@@ -152,7 +165,7 @@ const DRAW = {
 };
 
 const SIZES = {
-  leguna: [124, 196], rickshaw: [96, 160], cng: [104, 164], bus: [146, 332], car: [110, 182],
+  leguna: [136, 198], rickshaw: [96, 160], cng: [104, 164], bus: [146, 332], car: [110, 182],
   police: [116, 116], cow: [92, 170], hawker: [90, 90], puddle: [170, 110], passenger: [84, 96],
   tree: [100, 100], stall: [104, 124],
 };

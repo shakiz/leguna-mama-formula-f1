@@ -23,11 +23,44 @@ Controls: tap or swipe left/right on mobile, `←` `→` or `A` `D` on desktop. 
 
 Every push to `main` then deploys automatically, and other branches get preview URLs. `public/_headers` sets long caching for hashed assets and no caching for `memes.json` and the service worker.
 
-## Editing memes
+## Sounds and memes
 
-`public/memes.json` holds every meme caption, grouped by trigger (`start`, `crash`, `cow`, `nearmiss`, `pickup`, `puddle`, `stretch_<id>`, `finish`, `newbest`). Variants rotate without repeats. Edit and push; no code changes needed.
+Everything lives in `public/memes.json`; edit and push, no code changes needed.
 
-To use a recorded clip instead of the synth placeholder, put the file in `public/audio/memes/` and add `"audio": "audio/memes/your-clip.mp3"` to the meme. Re-record lines yourself rather than ripping original clips.
+**`events`**: what each game event sounds like.
+
+```json
+"crash_car": { "sfx": "crunch", "audio": ["audio/events/crunch-1.mp3"], "chain": [{ "event": "bump_honk", "delay": 450 }] }
+```
+
+| Field | Meaning |
+|---|---|
+| `audio` | Recorded clip(s) in `public/audio/...`. With several, one is picked at random |
+| `sfx` | Built-in placeholder sound(s), used while no clip has loaded. See `SFX` in `src/audio/sfx.js` |
+| `volume` | Clip volume, 0–1 (default 1) |
+| `cooldown` | Minimum ms between two plays of this event |
+| `chance` | Play only this fraction of the time (used for ambient spawn sounds) |
+| `memeChance` | Show a meme popup only this fraction of the time |
+| `caption` | Helper callout shown near the leguna, e.g. `{ "bn": "বামে প্লাস্টিক!", "en": "..." }` |
+| `chain` | Follow-up events fired after a delay |
+
+**`triggers`**: meme popups per event, rotating without repeats. A meme can carry its own voice line in `audio` and an extra `sfx` stinger.
+
+**Event names** follow `<event>_<vehicle>`. If a specific entry is missing, the general one is used: `close_cng` falls back to `close`, and `crash_bus` to `crash`.
+
+| Event | When |
+|---|---|
+| `start`, `finish`, `newbest`, `stretch_<id>` | Run start, finish, new record, entering a route stretch |
+| `pickup`, `puddle` | Passenger picked up, drove through water |
+| `crash_<vehicle>` | Collision. `crash_car` (bumper) chains to `bump_honk` |
+| `close_<vehicle>` | Passed within `CLOSE_MARGIN` px without touching: +৳2 bonus |
+| `closeturn_<vehicle>` | Swerved out of a lane just before impact: +৳2 bonus |
+| `helper_left`, `helper_right`, `helper_ahead` | Helper's warning on every close call ("বামে / ডানে / সামনে প্লাস্টিক!") |
+| `spawn_<vehicle>` | Vehicle appears (ambient horn, bell, moo) |
+
+**Recording clips:** mono MP3 at 48–64 kbps, 1–3 seconds, ideally under 40 KB. Put them in `public/audio/` (for example `public/audio/helper/bame-plastic.mp3`) and list them in the event's `audio`. Re-record lines yourself rather than ripping original clips.
+
+**Testing in dev** (`npm run dev` only): keys `1`–`9` spawn rickshaw, CNG, bus, car, police, cow, hawker, puddle or passenger in your lane; `Shift` + number spawns in the next lane.
 
 ## Where things live
 

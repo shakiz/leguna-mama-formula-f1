@@ -38,13 +38,14 @@ export const CSS = {
 };
 
 // vy: the object's own forward speed. It drifts towards the player at (playerSpeed - vy).
+// Sounds and memes per kind live in public/memes.json (spawn_<kind>, close_<kind>, crash_<kind>, ...).
 export const KINDS = {
-  rickshaw: { tex: 'rickshaw', vy: 160, solid: true, sfx: 'bell' },
+  rickshaw: { tex: 'rickshaw', vy: 160, solid: true },
   cng: { tex: 'cng', vy: 300, solid: true },
-  bus: { tex: 'bus', vy: 340, solid: true, sfx: 'horn' },
+  bus: { tex: 'bus', vy: 340, solid: true },
   car: { tex: 'car', vy: 420, solid: true },
-  police: { tex: 'police', vy: 0, solid: true, sfx: 'whistle' },
-  cow: { tex: 'cow', vy: 0, solid: true, sfx: 'moo', meme: 'cow' },
+  police: { tex: 'police', vy: 0, solid: true },
+  cow: { tex: 'cow', vy: 0, solid: true },
   hawker: { tex: 'hawker', vy: 40, solid: true },
   puddle: { tex: 'puddle', vy: 0, effect: 'slow' },
   passenger: { tex: 'passenger', vy: 0, effect: 'fare' },
@@ -86,3 +87,7 @@ export const STRETCHES = [
 ];
 
 export const FARE_PER_PASSENGER = 10;
+
+// A close call: passing within this many px of a vehicle without touching it earns a bonus
+export const CLOSE_MARGIN = 28;
+export const CLOSE_BONUS = 2;

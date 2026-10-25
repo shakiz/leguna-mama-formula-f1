@@ -5,6 +5,8 @@ let ctx = null;
 let master = null;
 let muted = load('muted', false);
 let noiseBuf = null;
+// Recorded clips: url -> { data: Promise<ArrayBuffer|null>, buffer: AudioBuffer|null }
+const clips = new Map();
 
 export function unlockAudio() {
   if (!ctx) {
@@ -18,8 +20,43 @@ export function unlockAudio() {
       if (document.hidden) ctx.suspend();
       else ctx.resume();
     });
+    clips.forEach(decodeClip);
   }
   if (ctx.state === 'suspended') ctx.resume();
+}
+
+// Clips download in the background; decoding needs an AudioContext, so it waits for the first tap
+export function preloadClips(urls) {
+  for (const url of urls) {
+    if (clips.has(url)) continue;
+    const entry = { buffer: null, decoding: null };
+    entry.data = fetch(url).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null);
+    clips.set(url, entry);
+    if (ctx) decodeClip(entry);
+  }
+}
+
+function decodeClip(entry) {
+  if (entry.decoding) return;
+  entry.decoding = entry.data
+    .then((d) => d && ctx.decodeAudioData(d))
+    .then((b) => {
+      entry.buffer = b || null;
+    })
+    .catch(() => {});
+}
+
+// Returns false when the clip is missing or not decoded yet, so the caller can fall back to a synth sound
+export function playClip(url, volume = 1) {
+  const entry = clips.get(url);
+  if (!ctx || muted || !entry?.buffer) return false;
+  const src = ctx.createBufferSource();
+  src.buffer = entry.buffer;
+  const g = ctx.createGain();
+  g.gain.value = volume;
+  src.connect(g).connect(master);
+  src.start();
+  return true;
 }
 
 export const isMuted = () => muted;
@@ -108,6 +145,33 @@ const SFX = {
   sad: () => [392, 370, 349, 262].forEach((f, i) => tone('triangle', f, f * (i === 3 ? 0.9 : 1), i === 3 ? 0.7 : 0.28, 0.2, i * 0.3)),
   sting: () => [523, 659, 784, 1047].forEach((f, i) => tone('triangle', f, f, i === 3 ? 0.6 : 0.25, 0.2, i * 0.12)),
   tap: () => tone('sine', 660, 880, 0.08, 0.15),
+  // Private car's polite "pip-pip"
+  beep: () => {
+    tone('square', 880, 880, 0.09, 0.1);
+    tone('square', 880, 880, 0.12, 0.1, 0.13);
+  },
+  // Bumped car driver leaning on the horn: one long blast, then three angry jabs
+  angryhonk: () => {
+    tone('square', 370, 370, 0.55, 0.13);
+    tone('square', 466, 466, 0.55, 0.1);
+    for (const w of [0.65, 0.85, 1.05]) {
+      tone('square', 370, 370, 0.13, 0.13, w);
+      tone('square', 466, 466, 0.13, 0.1, w);
+    }
+  },
+  // Bumper-on-bumper: metal crunch with a clank on top
+  crunch: () => {
+    noise(0.3, 0.8, 'bandpass', 1800, 500);
+    tone('triangle', 1250, 900, 0.18, 0.15);
+    tone('triangle', 1720, 1300, 0.22, 0.1, 0.03);
+    tone('sine', 120, 45, 0.3, 0.6);
+  },
+  // Stand-in for the helper's shout until a voice clip is recorded: "ba-me plas-tic" rhythm
+  helper: () => [520, 470, 600, 540].forEach((f, i) => tone('sawtooth', f, f * 0.92, 0.1, 0.07, i * 0.11)),
+  bonus: () => {
+    tone('square', 1319, 1319, 0.06, 0.08);
+    tone('square', 1760, 1760, 0.14, 0.08, 0.06);
+  },
 };
 
 export function play(name) {

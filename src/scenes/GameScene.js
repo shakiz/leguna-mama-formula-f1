@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
 import {
   W, H, ROAD_X, ROAD_W, LANES, LANE_W, laneX, PLAYER_Y, HUD_H,
-  BASE_SPEED, ACCEL, ROUTE_LENGTH, KINDS, STRETCHES, FARE_PER_PASSENGER, COLORS, CSS,
+  BASE_SPEED, ACCEL, ROUTE_LENGTH, KINDS, STRETCHES, FARE_PER_PASSENGER, CLOSE_MARGIN, CLOSE_BONUS, COLORS, CSS,
 } from '../config.js';
-import { t, pick, fmtTime, num } from '../i18n.js';
-import { play, startMusic, stopMusic, isMuted, setMuted } from '../audio/sfx.js';
-import { pickMeme, playMemeSound } from '../memes.js';
+import { pick, fmtTime, num } from '../i18n.js';
+import { startMusic, stopMusic, isMuted, setMuted } from '../audio/sfx.js';
+import { pickMeme, getEvent, playSound } from '../memes.js';
 import { load, save } from '../storage.js';
 import { text, artFrame } from '../ui.js';
 
@@ -39,6 +39,8 @@ export default class GameScene extends Phaser.Scene {
     this.elapsed = 0;
     this.fare = 0;
     this.crashes = 0;
+    this.closeCalls = 0;
+    this.eventAt = {};
     this.stun = 0;
     this.invuln = 0;
     this.slow = 0;
@@ -55,7 +57,7 @@ export default class GameScene extends Phaser.Scene {
     this.createHud();
     this.setupInput();
     this.enterStretch(0);
-    this.meme('start', true);
+    this.fireEvent('start', { forceMeme: true });
     startMusic();
     this.events.once('shutdown', () => stopMusic());
   }
@@ -68,6 +70,16 @@ export default class GameScene extends Phaser.Scene {
     kb.on('keydown-A', () => this.steer(-1));
     kb.on('keydown-RIGHT', () => this.steer(1));
     kb.on('keydown-D', () => this.steer(1));
+
+    // Dev-only test keys: 1-9 spawn each vehicle kind in your lane, Shift+1-9 in the next lane over
+    if (import.meta.env.DEV) {
+      kb.on('keydown', (e) => {
+        const kind = Object.keys(KINDS)[Number(e.code.replace('Digit', '')) - 1];
+        if (!kind) return;
+        const lane = e.shiftKey ? (this.lane === LANES - 1 ? this.lane - 1 : this.lane + 1) : this.lane;
+        this.spawn(kind, lane);
+      });
+    }
 
     // Swipe steers as soon as the finger has moved far enough; a plain tap steers towards its side on release
     this.input.on('pointerdown', (p) => {
@@ -93,24 +105,44 @@ export default class GameScene extends Phaser.Scene {
     if (this.finished) return;
     const to = Phaser.Math.Clamp(this.lane + dir, 0, LANES - 1);
     if (to === this.lane) return;
-    this.checkNearMiss(this.lane);
+    this.checkNearMiss(this.lane, dir);
     this.lane = to;
     this.steerTween?.stop();
     this.steerTween = this.tweens.add({ targets: this.player, x: laneX(to), duration: 130, ease: 'Sine.easeOut' });
     this.player.angle = dir * 10;
   }
 
-  // Dodging out of a lane just before hitting something counts as a near-miss
-  checkNearMiss(fromLane) {
+  // Dodging out of a lane just before hitting something is a close turn. checkProximity pays it out
+  // once the vehicle is outside the close zone; crashing into it before then cancels the payout.
+  checkNearMiss(fromLane, dir) {
     const playerTop = this.player.y - this.player.displayHeight / 2;
-    const close = this.things.some((o) => {
-      if (!o.kind || o.done || o.lane !== fromLane || !KINDS[o.kind].solid) return false;
+    for (const o of this.things) {
+      if (!o.kind || o.done || o.lane !== fromLane || !KINDS[o.kind].solid) continue;
       const bottom = o.y + o.displayHeight / 2;
-      return bottom > playerTop - 150 && bottom < playerTop + 10;
-    });
-    if (close) {
-      play('whoosh');
-      this.meme('nearmiss');
+      if (bottom <= playerTop - 150 || bottom >= playerTop + 10) continue;
+      if (!o.close) this.fireEvent(dir > 0 ? 'helper_left' : 'helper_right', { meme: false });
+      o.close = 'closeturn';
+    }
+  }
+
+  // Coming within CLOSE_MARGIN of a vehicle without touching it: the helper shouts which side it's on
+  // straight away, and the bonus lands once the vehicle has cleared the zone
+  checkProximity(o) {
+    const p = this.player;
+    const dx = o.x - p.x;
+    const gapX = Math.abs(dx) - (o.displayWidth + p.displayWidth) / 2;
+    const gapY = Math.abs(o.y - p.y) - (o.displayHeight + p.displayHeight) / 2;
+    const inZone = gapX < CLOSE_MARGIN && gapY < CLOSE_MARGIN;
+    if (inZone && !o.close) {
+      o.close = 'close';
+      const side = Math.abs(dx) < 40 ? 'ahead' : dx < 0 ? 'left' : 'right';
+      this.fireEvent(`helper_${side}`, { meme: false });
+    } else if (!inZone && o.close && !o.closePaid) {
+      o.closePaid = true;
+      this.closeCalls++;
+      this.fare += CLOSE_BONUS;
+      this.floatText(`+৳${num(CLOSE_BONUS)}`, p.x, p.y - 120, CSS.cream);
+      this.fireEvent(`${o.close}_${o.kind}`);
     }
   }
 
@@ -120,7 +152,7 @@ export default class GameScene extends Phaser.Scene {
     this.stretchIdx = i;
     const st = STRETCHES[i];
     this.spawnBanner(pick(st.name), i === 0 ? COLORS.green : COLORS.teal);
-    if (i > 0) this.meme(`stretch_${st.id}`, true);
+    if (i > 0) this.fireEvent(`stretch_${st.id}`, { forceMeme: true });
   }
 
   spawnBanner(label, color) {
@@ -138,19 +170,23 @@ export default class GameScene extends Phaser.Scene {
     this.things.push(c);
   }
 
-  spawn() {
+  // forceKind / forceLane skip the fairness checks; the dev test keys use them
+  spawn(forceKind, forceLane) {
     const st = STRETCHES[this.stretchIdx];
-    const kind = weightedPick(st.spawn);
+    const kind = forceKind ?? weightedPick(st.spawn);
     const def = KINDS[kind];
-    const nearTop = this.things.filter((o) => o.kind && o.y < 220);
-    const free = [0, 1, 2].filter((l) => !nearTop.some((o) => o.lane === l));
-    if (!free.length) return;
-    // Always leave at least one lane without a solid obstacle
-    if (def.solid) {
-      const blocked = new Set(nearTop.filter((o) => KINDS[o.kind].solid).map((o) => o.lane));
-      if (blocked.size >= LANES - 1) return;
+    let lane = forceLane;
+    if (lane === undefined) {
+      const nearTop = this.things.filter((o) => o.kind && o.y < 220);
+      const free = [0, 1, 2].filter((l) => !nearTop.some((o) => o.lane === l));
+      if (!free.length) return;
+      // Always leave at least one lane without a solid obstacle
+      if (def.solid) {
+        const blocked = new Set(nearTop.filter((o) => KINDS[o.kind].solid).map((o) => o.lane));
+        if (blocked.size >= LANES - 1) return;
+      }
+      lane = Phaser.Utils.Array.GetRandom(free);
     }
-    const lane = Phaser.Utils.Array.GetRandom(free);
     const img = this.add.image(laneX(lane), -200, def.tex).setDepth(kind === 'puddle' ? 5 : 15);
     img.kind = kind;
     img.lane = lane;
@@ -163,7 +199,7 @@ export default class GameScene extends Phaser.Scene {
     if (kind === 'passenger') this.tweens.add({ targets: img, angle: 10, duration: 260, yoyo: true, repeat: -1 });
     if (kind === 'cow') img.setAngle(Phaser.Math.Between(-20, 20));
     this.things.push(img);
-    if (def.sfx && Math.random() < 0.35) play(def.sfx);
+    this.fireEvent(`spawn_${kind}`, { meme: false });
   }
 
   spawnDecor() {
@@ -186,15 +222,13 @@ export default class GameScene extends Phaser.Scene {
     if (def.effect === 'fare') {
       o.done = true;
       this.fare += FARE_PER_PASSENGER;
-      play('coin');
-      if (Math.random() < 0.6) this.meme('pickup');
+      this.fireEvent('pickup');
       this.floatText(`+৳${num(FARE_PER_PASSENGER)}`, o.x, o.y, CSS.yellow);
       this.tweens.add({ targets: o, y: o.y - 40, scale: 0.3, alpha: 0, duration: 250 });
     } else if (def.effect === 'slow') {
       o.done = true;
       this.slow = 1.3;
-      play('splash');
-      this.meme('puddle');
+      this.fireEvent('puddle');
       this.splash(this.player.x, this.player.y - 60);
       this.cameras.main.shake(150, 0.004);
     } else if (def.solid && this.invuln <= 0) {
@@ -203,9 +237,8 @@ export default class GameScene extends Phaser.Scene {
       this.speed = 0;
       this.stun = 0.8;
       this.invuln = 2;
-      play('crash');
       this.cameras.main.shake(260, 0.014);
-      this.meme(def.meme ?? 'crash', true);
+      this.fireEvent(`crash_${o.kind}`, { forceMeme: true });
       const push = o.x < this.player.x ? -70 : 70;
       this.tweens.add({ targets: o, x: o.x + push, angle: push / 3, duration: 300, ease: 'Cubic.easeOut' });
     }
@@ -231,7 +264,22 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  // --- memes ---------------------------------------------------------------
+  // --- events & memes -------------------------------------------------------
+
+  // Every game event goes through here: its sound and caption (from memes.json `events`, with a
+  // per-event cooldown), then a meme popup (shared cooldown), then any chained follow-up events
+  fireEvent(name, { forceMeme = false, meme = true } = {}) {
+    const ev = getEvent(name);
+    if (ev.chance !== undefined && Math.random() > ev.chance) return;
+    const now = this.time.now;
+    if (now - (this.eventAt[name] ?? -Infinity) >= (ev.cooldown ?? 0)) {
+      this.eventAt[name] = now;
+      playSound(ev);
+      if (ev.caption) this.callout(pick(ev.caption));
+    }
+    if (meme && (ev.memeChance === undefined || Math.random() < ev.memeChance)) this.meme(name, forceMeme);
+    for (const next of ev.chain ?? []) this.time.delayedCall(next.delay ?? 0, () => this.fireEvent(next.event));
+  }
 
   meme(trigger, force = false) {
     const now = this.time.now;
@@ -239,8 +287,22 @@ export default class GameScene extends Phaser.Scene {
     const m = pickMeme(trigger);
     if (!m) return;
     this.lastMemeAt = now;
-    playMemeSound(m);
+    playSound(m);
     this.showBubble(pick(m));
+  }
+
+  // The helper hanging off the back of the leguna shouts a warning
+  callout(str) {
+    this.calloutLabel?.destroy();
+    const label = text(this, this.player.x, PLAYER_Y + 128, `🗣️ ${str}`, 30, CSS.ink, {
+      backgroundColor: CSS.yellow,
+      padding: { left: 16, right: 16, top: 10, bottom: 6 },
+    }).setOrigin(0.5).setDepth(55);
+    label.x = Phaser.Math.Clamp(label.x, label.width / 2 + 12, W - label.width / 2 - 12);
+    label.setScale(0.4);
+    this.calloutLabel = label;
+    this.tweens.add({ targets: label, scale: 1, duration: 140, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: label, alpha: 0, delay: 750, duration: 200, onComplete: () => label.destroy() });
   }
 
   showBubble(str) {
@@ -269,7 +331,7 @@ export default class GameScene extends Phaser.Scene {
     g.lineStyle(8, COLORS.cream, 0.4).lineBetween(BAR_X, 112, BAR_X + BAR_W, 112);
     for (const st of STRETCHES) g.fillStyle(COLORS.teal).fillCircle(BAR_X + BAR_W * st.at, 112, 8);
     g.fillStyle(COLORS.magenta).fillCircle(BAR_X + BAR_W, 112, 11);
-    this.marker = this.add.image(BAR_X, 112, 'leguna').setScale(0.2).setDepth(91);
+    this.marker = this.add.image(BAR_X, 104, 'leguna-side').setScale(0.1).setDepth(91);
 
     this.hudTime = text(this, 28, 14, '', 40, CSS.yellow).setDepth(91);
     this.hudFare = text(this, W / 2, 14, '', 40, CSS.cream).setOrigin(0.5, 0).setDepth(91);
@@ -341,7 +403,10 @@ export default class GameScene extends Phaser.Scene {
         this.things.splice(i, 1);
         continue;
       }
-      if (o.kind && !o.done && !this.finished) this.collide(o);
+      if (o.kind && !o.done && !this.finished) {
+        this.collide(o);
+        if (!o.done && KINDS[o.kind].solid) this.checkProximity(o);
+      }
     }
 
     this.updateHud(progress);
@@ -351,12 +416,11 @@ export default class GameScene extends Phaser.Scene {
   finish() {
     this.finished = true;
     stopMusic();
-    play('sting');
     const best = load('best', null);
     const isBest = best === null || this.elapsed < best;
     if (isBest) save('best', this.elapsed);
-    this.meme(isBest && best !== null ? 'newbest' : 'finish', true);
-    const result = { time: this.elapsed, fare: this.fare, crashes: this.crashes, isBest };
+    this.fireEvent(isBest && best !== null ? 'newbest' : 'finish', { forceMeme: true });
+    const result = { time: this.elapsed, fare: this.fare, crashes: this.crashes, closeCalls: this.closeCalls, isBest };
     this.time.delayedCall(1800, () => this.scene.start('Result', result));
   }
 }

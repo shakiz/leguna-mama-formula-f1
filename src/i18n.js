@@ -19,6 +19,7 @@ const STR = {
   time: { bn: 'সময়', en: 'Time' },
   fare: { bn: 'ভাড়া', en: 'Fare' },
   crashes: { bn: 'ধাক্কা', en: 'Crashes' },
+  closeCalls: { bn: 'ঝুঁকি পাস', en: 'Close calls' },
   sec: { bn: 'সেকেন্ড', en: 's' },
   finished: { bn: 'পৌঁছাইসি!', en: 'Made it!' },
   newBest: { bn: 'নতুন রেকর্ড!', en: 'New record!' },

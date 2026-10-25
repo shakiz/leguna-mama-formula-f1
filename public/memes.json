@@ -1,10 +1,41 @@
 {
-  "_readme": "Meme pack. Edit and redeploy, no code change needed. Each trigger has variants that rotate without repeating. Fields: bn/en = caption, sfx = synth placeholder (horn, bell, crash, splash, coin, slap, whoosh, moo, whistle, boing, sad, sting, tap), audio = optional path to a recorded clip, e.g. audio/memes/what-happening.mp3 (put the file in public/audio/memes/). Re-record lines yourself rather than ripping original clips.",
+  "_readme": "Sounds and memes for every game event. Edit and redeploy, no code change needed. See README.md > Sounds and memes.",
+  "events": {
+    "start": { "sfx": "slap" },
+    "pickup": { "sfx": "coin", "memeChance": 0.6 },
+    "puddle": { "sfx": "splash", "cooldown": 400 },
+
+    "crash": { "sfx": "crash" },
+    "crash_cow": { "sfx": ["crash", "moo"] },
+    "crash_car": { "sfx": "crunch", "chain": [{ "event": "bump_honk", "delay": 450 }] },
+    "bump_honk": { "sfx": "angryhonk" },
+
+    "close": { "sfx": "bonus", "cooldown": 250 },
+    "close_car": { "sfx": ["bonus", "beep"], "cooldown": 600 },
+    "closeturn": { "sfx": ["bonus", "whoosh"], "cooldown": 250 },
+
+    "helper_left": { "caption": { "bn": "বামে প্লাস্টিক!", "en": "Plastic on the left!" }, "sfx": "helper", "cooldown": 900 },
+    "helper_right": { "caption": { "bn": "ডানে প্লাস্টিক!", "en": "Plastic on the right!" }, "sfx": "helper", "cooldown": 900 },
+    "helper_ahead": { "caption": { "bn": "সামনে প্লাস্টিক!", "en": "Plastic up front!" }, "sfx": "helper", "cooldown": 900 },
+
+    "spawn_rickshaw": { "sfx": "bell", "chance": 0.35 },
+    "spawn_bus": { "sfx": "horn", "chance": 0.35 },
+    "spawn_police": { "sfx": "whistle", "chance": 0.35 },
+    "spawn_cow": { "sfx": "moo", "chance": 0.35 },
+
+    "stretch_manikmia": { "sfx": "sting" },
+    "stretch_asadgate": { "sfx": "horn" },
+    "stretch_asadave": { "sfx": "splash" },
+    "stretch_mohammadpur": { "sfx": "slap" },
+
+    "finish": { "sfx": "sting" },
+    "newbest": { "sfx": "sting" }
+  },
   "triggers": {
     "start": [
-      { "bn": "মোহাম্মদপুর! মোহাম্মদপুর! এক সিট খালি!", "en": "Mohammadpur! Mohammadpur! One seat free!", "sfx": "slap" },
-      { "bn": "উঠেন উঠেন, জায়গা আছে!", "en": "Get in, get in, there's room!", "sfx": "slap" },
-      { "bn": "ওস্তাদ, টান দেন!", "en": "Ostad, hit it!", "sfx": "slap" }
+      { "bn": "মোহাম্মদপুর! মোহাম্মদপুর! এক সিট খালি!", "en": "Mohammadpur! Mohammadpur! One seat free!" },
+      { "bn": "উঠেন উঠেন, জায়গা আছে!", "en": "Get in, get in, there's room!" },
+      { "bn": "ওস্তাদ, টান দেন!", "en": "Ostad, hit it!" }
     ],
     "crash": [
       { "bn": "What happening?! 😵", "en": "What happening?! 😵", "sfx": "boing" },
@@ -13,45 +44,59 @@
       { "bn": "লাইসেন্স কই মামা? 🪪", "en": "Where's your licence, Mama? 🪪", "sfx": "sad" },
       { "bn": "বাম্পার শেষ, ইজ্জতও শেষ", "en": "Bumper's gone. So is my dignity.", "sfx": "sad" }
     ],
-    "cow": [
-      { "bn": "গরুর রাইট অফ ওয়ে 🐄", "en": "The cow has right of way 🐄", "sfx": "moo" },
-      { "bn": "হাম্বা! আগে আমি যাব", "en": "Hamba! I go first.", "sfx": "moo" }
+    "crash_cow": [
+      { "bn": "গরুর রাইট অফ ওয়ে 🐄", "en": "The cow has right of way 🐄" },
+      { "bn": "হাম্বা! আগে আমি যাব", "en": "Hamba! I go first." }
     ],
-    "nearmiss": [
-      { "bn": "মামা, আস্তে!", "en": "Mama, slow down!", "sfx": "whoosh" },
-      { "bn": "চুল পরিমাণ বাঁচা! 😮‍💨", "en": "Missed by a hair! 😮‍💨", "sfx": "whoosh" },
-      { "bn": "ইঞ্চি মেপে ড্রাইভিং 📏", "en": "Driving by the inch 📏", "sfx": "whoosh" }
+    "crash_car": [
+      { "bn": "এই মিয়া, দেখে চালান! জানেন আমি কে? 😤", "en": "Hey, watch it! Do you know who I am? 😤" },
+      { "bn": "বাম্পার গেল, মান-ইজ্জতও গেল", "en": "There goes the bumper, and my dignity" },
+      { "bn": "ইন্সুরেন্স আছে তো মামা?", "en": "Got insurance, Mama?" }
+    ],
+    "close": [
+      { "bn": "ঝুঁকি বোনাস! 😮‍💨", "en": "Risk bonus! 😮‍💨" },
+      { "bn": "একদম ঘেঁষে! +২ টাকা", "en": "Close shave! +2 taka" }
+    ],
+    "close_car": [
+      { "bn": "মামা, প্রাইভেট কারের রং উঠায় দিবেন নাকি?", "en": "Mama, are you trying to scrape that car's paint off?" },
+      { "bn": "গাড়ি ঘেঁষে যাইয়েন না!", "en": "Don't squeeze past the car!" },
+      { "bn": "লুকিং গ্লাস বাঁচসে! 🪞", "en": "The side mirror survived! 🪞" }
+    ],
+    "closeturn": [
+      { "bn": "মামা, আস্তে!", "en": "Mama, slow down!" },
+      { "bn": "চুল পরিমাণ বাঁচা! 😮‍💨", "en": "Missed by a hair! 😮‍💨" },
+      { "bn": "ইঞ্চি মেপে ড্রাইভিং 📏", "en": "Driving by the inch 📏" }
     ],
     "pickup": [
-      { "bn": "ভাড়া কত মামা? — দশ টাকা!", "en": "How much, Mama? — Ten taka!", "sfx": "coin" },
-      { "bn": "সামনে সিট নাই, পিছে চাপেন!", "en": "No seat in front, squeeze in the back!", "sfx": "coin" },
-      { "bn": "ভাংতি নাই মামা", "en": "No change, Mama", "sfx": "coin" },
-      { "bn": "বাম পাশে, বাম পাশে!", "en": "Left side, left side!", "sfx": "coin" }
+      { "bn": "ভাড়া কত মামা? — দশ টাকা!", "en": "How much, Mama? — Ten taka!" },
+      { "bn": "সামনে সিট নাই, পিছে চাপেন!", "en": "No seat in front, squeeze in the back!" },
+      { "bn": "ভাংতি নাই মামা", "en": "No change, Mama" },
+      { "bn": "বাম পাশে, বাম পাশে!", "en": "Left side, left side!" }
     ],
     "puddle": [
-      { "bn": "প্যান্ট শেষ 💦", "en": "My trousers are done for 💦", "sfx": "splash" },
-      { "bn": "এইটা রাস্তা না নদী?", "en": "Is this a road or a river?", "sfx": "splash" },
-      { "bn": "লেগুনা না, নৌকা চালাই 🚤", "en": "Not a leguna — a boat 🚤", "sfx": "splash" }
+      { "bn": "প্যান্ট শেষ 💦", "en": "My trousers are done for 💦" },
+      { "bn": "এইটা রাস্তা না নদী?", "en": "Is this a road or a river?" },
+      { "bn": "লেগুনা না, নৌকা চালাই 🚤", "en": "Not a leguna — a boat 🚤" }
     ],
     "stretch_manikmia": [
-      { "bn": "ফাঁকা রাস্তা! টান দেন মামা! 🏎️", "en": "Empty road! Floor it, Mama! 🏎️", "sfx": "sting" }
+      { "bn": "ফাঁকা রাস্তা! টান দেন মামা! 🏎️", "en": "Empty road! Floor it, Mama! 🏎️" }
     ],
     "stretch_asadgate": [
-      { "bn": "Enough! En-Aff 😤", "en": "Enough! En-Aff 😤", "sfx": "horn" },
-      { "bn": "সিগন্যাল তো ছাড়ে না!", "en": "The signal never turns green!", "sfx": "horn" }
+      { "bn": "Enough! En-Aff 😤", "en": "Enough! En-Aff 😤" },
+      { "bn": "সিগন্যাল তো ছাড়ে না!", "en": "The signal never turns green!" }
     ],
     "stretch_asadave": [
-      { "bn": "পানি উঠসে মামা! 🌧️", "en": "It's flooded, Mama! 🌧️", "sfx": "splash" }
+      { "bn": "পানি উঠসে মামা! 🌧️", "en": "It's flooded, Mama! 🌧️" }
     ],
     "stretch_mohammadpur": [
-      { "bn": "নামেন নামেন, বাসস্ট্যান্ড!", "en": "Off you get — bus stand!", "sfx": "slap" }
+      { "bn": "নামেন নামেন, বাসস্ট্যান্ড!", "en": "Off you get — bus stand!" }
     ],
     "finish": [
-      { "bn": "মামা তো পুরা F1! 🏆", "en": "Mama is full-on F1! 🏆", "sfx": "sting" },
-      { "bn": "Final match. You perform. 🏆", "en": "Final match. You perform. 🏆", "sfx": "sting" }
+      { "bn": "মামা তো পুরা F1! 🏆", "en": "Mama is full-on F1! 🏆" },
+      { "bn": "Final match. You perform. 🏆", "en": "Final match. You perform. 🏆" }
     ],
     "newbest": [
-      { "bn": "নতুন রেকর্ড! শুমাখারও ফেল 😎", "en": "New record! Even Schumacher fails 😎", "sfx": "sting" }
+      { "bn": "নতুন রেকর্ড! শুমাখারও ফেল 😎", "en": "New record! Even Schumacher fails 😎" }
     ]
   }
 }

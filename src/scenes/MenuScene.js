@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { W, H, COLORS, CSS } from '../config.js';
 import { t, fmtTime, toggleLang } from '../i18n.js';
-import { unlockAudio, isMuted, setMuted, play } from '../audio/sfx.js';
+import { unlockAudio, isMuted, setMuted } from '../audio/sfx.js';
 import { load } from '../storage.js';
 import { text, artFrame, button } from '../ui.js';
 
@@ -20,10 +20,8 @@ export default class MenuScene extends Phaser.Scene {
     text(this, W / 2, 335, t('subtitle'), 60, CSS.teal, { stroke: CSS.ink, strokeThickness: 8 }).setOrigin(0.5);
     text(this, W / 2, 420, t('route'), 30, CSS.ink).setOrigin(0.5);
 
-    const leguna = this.add.image(W / 2, 660, 'leguna').setScale(1.4);
-    this.tweens.add({ targets: leguna, y: 652, duration: 140, yoyo: true, repeat: -1 });
-    const pax = this.add.image(W / 2 + 160, 640, 'passenger');
-    this.tweens.add({ targets: pax, angle: 8, duration: 300, yoyo: true, repeat: -1 });
+    const leguna = this.add.image(W / 2, 668, 'leguna-side').setScale(0.95);
+    this.tweens.add({ targets: leguna, y: 663, duration: 150, yoyo: true, repeat: -1 });
 
     button(this, W / 2, 900, 460, 120, t('play'), COLORS.magenta, () => this.start(), 52);
 
@@ -54,7 +52,6 @@ export default class MenuScene extends Phaser.Scene {
 
   start() {
     unlockAudio();
-    play('slap');
     this.scene.start('Game');
   }
 
