@@ -157,6 +157,27 @@ Potholes and open manholes come from the random spawn mix (`spawn` weights per s
 
 **Fair spawns:** `spawn()` never fills the last free lane near the top of the screen, and it also predicts when each solid will pass the leguna at the stretch's cruising speed (`closesRoad()`), so slow, long vehicles (the 384 px BRTC) can't drift into a three-lane wall further down. Lane changers use the same prediction before every move, and a VIP's lane stays free of new traffic. Traffic behind the leguna never drives into it (`yieldBehind()`): it slows to the leguna's speed when it gets close.
 
+## Landmarks
+
+The real places along the route live in `src/landmarks.js`. `track.js` places them as `features` (`{ type, d, d1?, side?, text? }`); the landmark module decides what they look like. All the art is drawn in code into textures the first time a landmark is needed (one-off, at the start of a run), and everything sits in road coordinates, so bends and the turning camera move it like any other prop.
+
+| Type | Kind | What you see |
+|---|---|---|
+| `parliament` | zone, `side` default `right` | The Jatiya Sangsad Bhaban complex: lawns with mowing stripes, a dark boundary railing along the pavement, a row of trees on the avenue edge, kites over the lawn, the lake on three sides of the building, the red-brick South Plaza causeway to the entrance, and the grey concrete building with white marble bands: the central octagonal assembly hall (parasol roof, marble rings) ringed by blocks with big circular and triangular openings, and the prayer hall's round corner towers. The blocks facing the avenue have their façades folded flat into view so their round and triangular openings read from above. The building sits in the middle of the zone. |
+| `residential` | zone, `side` default `left` | 6–10 storey apartment blocks, six variants: parapets, stair rooms, black water tanks, pot plants and planters, clotheslines, satellite dishes, solar panels, AC units, a folded façade strip with one band per storey and balconies, a front yard with a parked car, and the boundary wall with a steel gate at the pavement edge. Narrow alleys between blocks. A tree, tea stall or parked rickshaw on the pavement now and then |
+| `townhall` | zone, `side` default `both` | Mohammadpur Town Hall Market: long corrugated tin roofs (rust, galvanised, blue) and a concrete market block beyond the pavements, open-air vegetable and fish stalls under tarps, and a busy pavement of shoppers, tarp stalls, vegetable sellers and parked rickshaws over muddy ground with vegetable litter |
+| `asadgate_monument` | point, at the junction's `d`, `side` default `right` | The Asad Gate memorial: a white gateway of pillars under a lintel with its name plaque (আসাদ গেট), on a stepped plinth in a small garden, on the corner before the junction (centre 380 px of route before `d`, rx 765 or its mirror), clear of the cross road |
+| `signboard` | point, `side`, `text: { bn, en }` | A big green name board on two posts on the pavement, reaching over the kerb lane like Dhaka's gantry boards: the Bangla name large, the English one below, with a shadow on the road. Drawn overhead (depth 41) |
+
+How it plugs in (four functions; GameScene and `RoadRenderer` call them):
+
+- `spawnLandmark(scene, f, ry)`: called with each feature as it comes into view; spawns point landmarks (`asadgate_monument`, `signboard`) and returns `true` for every landmark type, `false` for anything else.
+- `landmarkTick(scene, dy)`: every frame. Each zone keeps a cursor per filler (blocks, pavement extras, trees, kites, the building's strips) and spawns whatever comes into view at the top (`SPAWN_ROW`, above the zoomed-out view).
+- `drawLandmarks(road)`: called by `RoadRenderer.draw()` after the pavements and before the kerbs; draws zone ground (lawn, lake, plaza, railing, yards and boundary wall, market floor, litter).
+- `sideTaken(d)`: `{ left, right }`, so the usual rooftops and pavement decor stay out of a landmark's roadside.
+
+Tuning: sizes, colours and positions are constants at the top of each section in `src/landmarks.js` (`PARL_X` and `LAKE_X` put the façades and lake edge in the zoomed-out view's right band, rx 720–880; `RES` lists the apartment variants with height and storeys; the fillers in `FILL` set spacing and mix per zone). Depths: ground in the road graphics, rooftops and the building 3, pavement things and the monument 4, the sign's shadow 6, kites and sign boards 41. Big art is cut into strips (`PARL_SLICE`) so it follows bends and never pops at the screen edge.
+
 ## Lane changers
 
 Kinds with a `weave` entry in `KINDS` hop to an adjacent lane on a random timer (`weave()` in `GameScene.js`):
@@ -190,6 +211,7 @@ A black SUV with a small gold pennant and a flashing red/blue light bar that com
 | `src/config.js` | Design resolution, speeds, route stretches with their bends, obstacle types |
 | `src/track.js` | Turns each stretch's `bends` into the road's sideways offset along the route |
 | `src/road.js` | Draws the bending road every frame (asphalt, kerbs, lane dashes, pavements, speed streaks) |
+| `src/landmarks.js` | The Parliament, residential blocks, Asad Gate memorial, Town Hall Market and name boards: their art, zone ground and spawning |
 | `src/scenes/GameScene.js` | The race: spawning and fairness, lane changers, the VIP, steering, collisions, the signal, meme popups, HUD |
 | `src/art/textures.js` | Placeholder rickshaw-art sprites drawn in code; replace with real images later |
 | `src/audio/sfx.js` | Synthesised sound effects, recorded clips (one voice at a time, ducking), the dhol loop, the engine (recorded loop, synth fallback), street ambience and vibration |
