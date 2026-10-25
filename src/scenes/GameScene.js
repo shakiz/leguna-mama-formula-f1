@@ -164,32 +164,45 @@ export default class GameScene extends Phaser.Scene {
 
   setupInput() {
     const kb = this.input.keyboard;
-    kb.on('keydown-LEFT', () => this.steer(-1));
-    kb.on('keydown-A', () => this.steer(-1));
-    kb.on('keydown-RIGHT', () => this.steer(1));
-    kb.on('keydown-D', () => this.steer(1));
+    // Phaser replays its whole key queue on every key event that arrives within a frame (skipping only
+    // back-to-back duplicates), so a key pressed in the same frame as another (Shift+1, or A then D) would
+    // reach a handler two or three times. Each handler acts once per real key event.
+    const once = (fn) => {
+      const seen = new WeakSet();
+      return (e) => {
+        if (seen.has(e)) return;
+        seen.add(e);
+        fn(e);
+      };
+    };
+    kb.on('keydown-LEFT', once(() => this.steer(-1)));
+    kb.on('keydown-A', once(() => this.steer(-1)));
+    kb.on('keydown-RIGHT', once(() => this.steer(1)));
+    kb.on('keydown-D', once(() => this.steer(1)));
     for (const key of ['DOWN', 'S']) {
-      kb.on(`keydown-${key}`, () => (this.braking = true));
-      kb.on(`keyup-${key}`, () => (this.braking = false));
+      kb.on(`keydown-${key}`, once(() => (this.braking = true)));
+      kb.on(`keyup-${key}`, once(() => (this.braking = false)));
     }
 
-    // Dev-only test keys: 1-9 and 0 spawn the first ten kinds in your lane, B a bike and T a "Tesla";
-    // with Shift, in the next lane over
+    // Dev-only test keys (held keys don't repeat): 1-9 and 0 spawn the first ten kinds in your lane, B a
+    // bike, T a "Tesla", V sends a VIP up your lane; with Shift, in the next lane over. C toggles a line
+    // down the middle of the road, for tuning bends.
     if (import.meta.env.DEV) {
-      kb.on('keydown', (e) => {
-        const kind = e.code.startsWith('Digit') ? Object.keys(KINDS)[(Number(e.code.slice(5)) || 10) - 1] : DEV_KEYS[e.code];
-        if (!kind) return;
+      kb.on('keydown', once((e) => {
+        if (e.repeat) return;
+        if (e.code === 'KeyC') {
+          this.road.showCentre = !this.road.showCentre;
+          return;
+        }
         const lane = e.shiftKey ? (this.lane === LANES - 1 ? this.lane - 1 : this.lane + 1) : this.lane;
-        this.spawn(kind, lane);
-      });
-      // V sends a VIP up your lane (Shift+V: the next lane), skipping the fairness checks
-      kb.on('keydown-V', (e) => {
-        if (!this.vip) this.startVip(e.shiftKey ? (this.lane === LANES - 1 ? this.lane - 1 : this.lane + 1) : this.lane);
-      });
-      // C toggles a line down the middle of the road, for tuning bends
-      kb.on('keydown-C', () => {
-        this.road.showCentre = !this.road.showCentre;
-      });
+        // The VIP skips the fairness checks, and waits while one is already on its way
+        if (e.code === 'KeyV') {
+          if (!this.vip) this.startVip(lane);
+          return;
+        }
+        const kind = e.code.startsWith('Digit') ? Object.keys(KINDS)[(Number(e.code.slice(5)) || 10) - 1] : DEV_KEYS[e.code];
+        if (kind) this.spawn(kind, lane);
+      }));
     }
 
     // Swipe sideways steers as soon as the finger has moved far enough, swipe down brakes until the
