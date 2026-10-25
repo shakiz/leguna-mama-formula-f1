@@ -63,12 +63,16 @@ export const KINDS = {
 export const BEND_SHIFT = 200; // px
 
 // Farmgate → Mohammadpur Bus Stand. `at` is the fraction of the route where the stretch begins.
+// `ambience` is the quiet street sound under each stretch (see setAmbience in audio/sfx.js):
+// hum, wind and rain are steady layers (0–1 loudness); horns, bells, chatter, birds and drips are
+// one-off sounds (average number per second).
 export const STRETCHES = [
   {
     id: 'farmgate', at: 0,
     name: { bn: 'ফার্মগেট', en: 'Farmgate' },
     spawn: { rickshaw: 3, cng: 2, bus: 1, passenger: 3, hawker: 2, pothole: 1 },
     gap: [520, 820],
+    ambience: { hum: 0.9, horns: 0.6, bells: 0.4, chatter: 0.3 },
     // Busy wiggles, then Khamarbari's long left sweep onto Manik Mia Avenue
     bends: [[0.3, 0], [0.25, 0.3], [0.2, 0], [0.25, -0.8]],
     features: [
@@ -85,6 +89,7 @@ export const STRETCHES = [
     spawn: { car: 4, bus: 1, police: 1, passenger: 1 },
     gap: [600, 900],
     speedBonus: 1.25,
+    ambience: { hum: 0.3, wind: 0.8, birds: 0.3, horns: 0.1 },
     bends: [[1, -0.8]], // dead straight, wide avenue
     // Planted median on the left and open lawns beyond it
     features: [{ type: 'avenue', at: 0, to: 1 }, { type: 'speedbreaker', at: 0.6 }],
@@ -94,6 +99,7 @@ export const STRETCHES = [
     name: { bn: 'আসাদ গেট', en: 'Asad Gate' },
     spawn: { bus: 3, rickshaw: 3, cng: 2, passenger: 1, manhole: 1 },
     gap: [420, 680],
+    ambience: { hum: 1, horns: 0.8, bells: 0.3, chatter: 0.2 },
     // Straight run-up to the junction, then the right sweep onto Asad Avenue
     bends: [[0.5, -0.8], [0.3, 0.4], [0.2, 0.4]],
     features: [{ type: 'junction', at: 0.42 }],
@@ -103,6 +109,7 @@ export const STRETCHES = [
     name: { bn: 'আসাদ এভিনিউ', en: 'Asad Avenue' },
     spawn: { puddle: 3, cow: 2, rickshaw: 2, cng: 1, passenger: 2, pothole: 2, manhole: 1 },
     gap: [480, 760],
+    ambience: { hum: 0.4, rain: 0.8, drips: 0.8, bells: 0.2 },
     bends: [[0.25, 1.1], [0.25, 0.2], [0.25, 1], [0.25, 0.6]], // S-bends
     features: [{ type: 'flood', at: 0.3, to: 0.6 }, { type: 'speedbreaker', at: 0.8 }],
   },
@@ -111,6 +118,7 @@ export const STRETCHES = [
     name: { bn: 'মোহাম্মদপুর বাসস্ট্যান্ড', en: 'Mohammadpur Bus Stand' },
     spawn: { passenger: 3, bus: 2, rickshaw: 2, cng: 1, hawker: 1, pothole: 1 },
     gap: [460, 720],
+    ambience: { hum: 0.6, chatter: 0.9, horns: 0.5, bells: 0.3 },
     bends: [[0.35, 0.3], [0.65, 0.3]], // eases straight into the bus stand
     features: [{ type: 'zebra', at: 0.3 }, { type: 'bunting', at: 0.45 }, { type: 'busstand', at: 0.6, to: 1 }],
   },

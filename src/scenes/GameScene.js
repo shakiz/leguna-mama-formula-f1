@@ -5,7 +5,9 @@ import {
   BRAKE_DECEL, RED_LIGHT_FINE, JUNCTION,
 } from '../config.js';
 import { pick, fmtTime, num } from '../i18n.js';
-import { startMusic, stopMusic, isMuted, setMuted } from '../audio/sfx.js';
+import {
+  startMusic, stopMusic, isMuted, setMuted, startEngine, setEngine, stopEngine, setAmbience, stopAmbience, vibrate,
+} from '../audio/sfx.js';
 import { pickMeme, getEvent, playSound } from '../memes.js';
 import { load, save } from '../storage.js';
 import { text, artFrame } from '../ui.js';
@@ -23,6 +25,13 @@ const OVERHEAD_PARALLAX = 1.07; // overhead things slide a touch faster than the
 const SPAWN_AHEAD = PLAYER_Y + 320; // route distance ahead of the player at which set pieces are created
 // Signal lamp offsets from the signal head's centre, per state
 const LAMP = { red: [20, -16, 0xff3b30], yellow: [20, 3, 0xffcc00], green: [20, 22, 0x2ecc40] };
+// The view leans this share of the road's heading into bends, up to MAX_LEAN, easing in at LEAN_RATE
+const LEAN = 0.3;
+const MAX_LEAN = Phaser.Math.DegToRad(2);
+const LEAN_RATE = 3; // per second
+// Speed streaks fade in from just under cruising speed and are at full strength with the avenue's bonus
+const STREAK_FROM = BASE_SPEED * 0.95;
+const STREAK_FULL = BASE_SPEED * 1.25;
 
 const nearJunction = (d) => features.some((f) => f.type === 'junction' && Math.abs(d - f.d) < JUNCTION.clear);
 
@@ -47,6 +56,11 @@ export default class GameScene extends Phaser.Scene {
 
   create() {
     buildTrack();
+    // Two cameras: the main one leans into bends, the HUD camera stays level on top. Everything
+    // added to the scene is world (main camera only) unless toHud() moves it to the HUD camera.
+    this.hudCam = this.cameras.add(0, 0, W, H);
+    this.events.on(Phaser.Scenes.Events.ADDED_TO_SCENE, this.toWorld, this);
+    this.lean = 0;
     this.road = new RoadRenderer(this, this);
     this.things = [];
     this.lane = 1;
@@ -92,7 +106,24 @@ export default class GameScene extends Phaser.Scene {
     this.enterStretch(0);
     this.fireEvent('start', { forceMeme: true });
     startMusic();
-    this.events.once('shutdown', () => stopMusic());
+    startEngine();
+    this.events.once('shutdown', () => {
+      stopMusic();
+      stopEngine();
+      stopAmbience();
+      this.events.off(Phaser.Scenes.Events.ADDED_TO_SCENE, this.toWorld, this);
+    });
+  }
+
+  toWorld(o) {
+    o.cameraFilter = this.hudCam.id;
+  }
+
+  // HUD, popups and callouts: drawn level by the HUD camera, untouched by the lean and shake
+  toHud(o) {
+    o.cameraFilter = this.cameras.main.id;
+    o.list?.forEach((c) => this.toHud(c));
+    return o;
   }
 
   // --- input -------------------------------------------------------------
@@ -220,6 +251,7 @@ export default class GameScene extends Phaser.Scene {
   enterStretch(i) {
     this.stretchIdx = i;
     const st = STRETCHES[i];
+    setAmbience(st.ambience);
     this.spawnBanner(pick(st.name), i === 0 ? COLORS.green : COLORS.teal);
     if (i > 0) this.fireEvent(`stretch_${st.id}`, { forceMeme: true });
   }
@@ -467,7 +499,7 @@ export default class GameScene extends Phaser.Scene {
       // Speed breaker: everyone goes over it; take it fast and the leguna takes off
       o.done = true;
       const fast = this.speed > BASE_SPEED * 0.8;
-      this.fireEvent('speedbreaker', { forceMeme: fast });
+      this.fireEvent(fast ? 'speedbreaker_fast' : 'speedbreaker', { forceMeme: fast });
       this.cameras.main.shake(fast ? 260 : 140, fast ? 0.012 : 0.005);
       this.tweens.add({ targets: this, hop: fast ? -18 : -6, duration: 120, yoyo: true });
       if (fast) this.slow = 0.5;
@@ -491,7 +523,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   floatText(str, x, y, color) {
-    const label = text(this, x, y, str, 40, color, { stroke: CSS.ink, strokeThickness: 6 }).setOrigin(0.5).setDepth(50);
+    const label = this.toHud(text(this, x, y, str, 40, color, { stroke: CSS.ink, strokeThickness: 6 }).setOrigin(0.5).setDepth(50));
     this.tweens.add({ targets: label, y: y - 110, alpha: 0, duration: 800, onComplete: () => label.destroy() });
   }
 
@@ -521,6 +553,7 @@ export default class GameScene extends Phaser.Scene {
     if (now - (this.eventAt[name] ?? -Infinity) >= (ev.cooldown ?? 0)) {
       this.eventAt[name] = now;
       playSound(ev);
+      if (ev.vibrate) vibrate(ev.vibrate);
       if (ev.caption) this.callout(pick(ev.caption));
     }
     if (meme && (ev.memeChance === undefined || Math.random() < ev.memeChance)) this.meme(name, forceMeme);
@@ -544,6 +577,7 @@ export default class GameScene extends Phaser.Scene {
       backgroundColor: CSS.yellow,
       padding: { left: 16, right: 16, top: 10, bottom: 6 },
     }).setOrigin(0.5).setDepth(55);
+    this.toHud(label);
     label.x = Phaser.Math.Clamp(label.x, label.width / 2 + 12, W - label.width / 2 - 12);
     label.setScale(0.4);
     this.calloutLabel = label;
@@ -560,6 +594,7 @@ export default class GameScene extends Phaser.Scene {
     const g = this.add.graphics();
     artFrame(g, -w / 2, -h / 2, w, h);
     c.add([g, label]);
+    this.toHud(c);
     c.setScale(0);
     this.bubble = c;
     this.tweens.add({ targets: c, scale: 1, duration: 220, ease: 'Back.easeOut' });
@@ -586,6 +621,7 @@ export default class GameScene extends Phaser.Scene {
       setMuted(!isMuted());
       mute.setText(isMuted() ? '🔇' : '🔊');
     });
+    for (const o of [g, this.marker, this.hudTime, this.hudFare, mute]) this.toHud(o);
   }
 
   updateHud(progress) {
@@ -695,7 +731,14 @@ export default class GameScene extends Phaser.Scene {
       this.place(o);
     }
     this.place(this.player);
+    this.road.streaks = Phaser.Math.Clamp((this.speed - STREAK_FROM) / (STREAK_FULL - STREAK_FROM), 0, 1);
     this.road.draw();
+    setEngine(this.speed / BASE_SPEED);
+
+    // Lean the view into the bend under the leguna, turning with the road like the driver's head
+    const lean = Phaser.Math.Clamp(angleAt(this.distance) * LEAN, -MAX_LEAN, MAX_LEAN);
+    this.lean += (lean - this.lean) * Math.min(1, dt * LEAN_RATE);
+    this.cameras.main.setRotation(-this.lean);
 
     this.updateHud(progress);
     if (!this.finished && progress >= 1) this.finish();

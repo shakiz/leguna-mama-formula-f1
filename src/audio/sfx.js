@@ -80,15 +80,20 @@ function tone(type, f0, f1, dur, vol = 0.3, when = 0, out = master) {
   o.stop(t + dur + 0.05);
 }
 
-function noise(dur, vol, filterType, f0, f1, when = 0, out = master) {
+// One second of white noise, shared by every noise sound and looped for the continuous beds
+function noiseBuffer() {
   if (!noiseBuf) {
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   }
+  return noiseBuf;
+}
+
+function noise(dur, vol, filterType, f0, f1, when = 0, out = master) {
   const t = ctx.currentTime + when;
   const src = ctx.createBufferSource();
-  src.buffer = noiseBuf;
+  src.buffer = noiseBuffer();
   const f = ctx.createBiquadFilter();
   f.type = filterType;
   f.frequency.setValueAtTime(f0, t);
@@ -230,4 +235,154 @@ export function stopMusic() {
     setTimeout(() => bus.disconnect(), 600);
     musicBus = null;
   }
+}
+
+// Haptic feedback for hard knocks. Part of the feedback the mute button turns off; a no-op where
+// vibration isn't supported (iPhone Safari, desktops)
+export function vibrate(pattern) {
+  if (muted || !('vibrate' in navigator)) return;
+  try {
+    navigator.vibrate(pattern);
+  } catch {
+    // Some browsers throw instead of ignoring a vibration they won't allow
+  }
+}
+
+function loopNoise() {
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuffer();
+  src.loop = true;
+  src.start();
+  return src;
+}
+
+function filter(type, freq, q = 1) {
+  const f = ctx.createBiquadFilter();
+  f.type = type;
+  f.frequency.value = freq;
+  f.Q.value = q;
+  return f;
+}
+
+function gainNode(value, out) {
+  const g = ctx.createGain();
+  g.gain.value = value;
+  if (out) g.connect(out);
+  return g;
+}
+
+// Fades a bus out, then stops its sources and unplugs it
+function fadeOut(bus, sources) {
+  bus.gain.setTargetAtTime(0, ctx.currentTime, 0.08);
+  setTimeout(() => {
+    for (const s of sources) s.stop();
+    bus.disconnect();
+  }, 500);
+}
+
+// --- engine -------------------------------------------------------------------
+// The leguna's putter (a sawtooth through a lowpass) plus tyre roar (filtered noise). Pitch and
+// volume follow the speed; at a standstill it falls silent so the street can be heard.
+let engine = null;
+
+export function startEngine() {
+  if (!ctx || engine) return;
+  const bus = gainNode(0, master);
+  const body = filter('lowpass', 300, 2);
+  body.connect(bus);
+  const osc = ctx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.value = 40;
+  osc.connect(body);
+  osc.start();
+  const roarGain = gainNode(0, bus);
+  const src = loopNoise();
+  src.connect(filter('bandpass', 420, 0.7)).connect(roarGain);
+  engine = { bus, osc, body, roarGain, src, ratio: -1 };
+}
+
+// ratio: speed / BASE_SPEED (above 1 with the avenue's speed bonus)
+export function setEngine(ratio) {
+  if (!engine) return;
+  const r = Math.min(1.5, Math.max(0, ratio));
+  // Called every frame: only reschedule the ramps when the speed has really changed
+  if (Math.abs(r - engine.ratio) < 0.01) return;
+  engine.ratio = r;
+  const t = ctx.currentTime;
+  engine.bus.gain.setTargetAtTime(r < 0.02 ? 0 : 0.09 + 0.07 * r, t, 0.12);
+  engine.osc.frequency.setTargetAtTime(38 + 46 * r, t, 0.12);
+  engine.body.frequency.setTargetAtTime(260 + 420 * r, t, 0.12);
+  engine.roarGain.gain.setTargetAtTime(0.5 * r * r, t, 0.12);
+}
+
+export function stopEngine() {
+  if (!engine) return;
+  fadeOut(engine.bus, [engine.osc, engine.src]);
+  engine = null;
+}
+
+// --- ambience -----------------------------------------------------------------
+// A quiet street bed per route stretch (`ambience` in config.js): continuous noise layers with a
+// loudness of 0–1, and one-off sounds whose number is how many play per second on average.
+const LAYERS = {
+  hum: { type: 'lowpass', freq: 260, q: 0.7, vol: 0.5 }, // distant traffic
+  wind: { type: 'bandpass', freq: 650, q: 0.5, vol: 0.25 }, // open air, gusting
+  rain: { type: 'highpass', freq: 3800, q: 0.5, vol: 0.12 }, // rain hiss
+};
+const SPOTS = {
+  horns: () => {
+    const f = 300 + Math.random() * 180;
+    tone('square', f, f, 0.18 + Math.random() * 0.25, 0.05, 0, ambience.bus);
+  },
+  bells: () => {
+    for (let i = 0; i < 2; i++) tone('sine', 2100, 2100, 0.1, 0.06, i * 0.11, ambience.bus);
+  },
+  // Murmur of a crowd: a few vowel-ish noise blips
+  chatter: () => {
+    for (let i = 0; i < 3; i++) {
+      const f = 500 + Math.random() * 700;
+      noise(0.12, 0.12, 'bandpass', f, f * 0.8, i * 0.14 + Math.random() * 0.05, ambience.bus);
+    }
+  },
+  birds: () => {
+    for (let i = 0; i < 2; i++) tone('sine', 3200, 4200, 0.07, 0.04, i * 0.12, ambience.bus);
+  },
+  drips: () => tone('sine', 1400, 500, 0.06, 0.08, Math.random() * 0.1, ambience.bus),
+};
+const AMBIENCE_TICK = 0.2; // s between rolls for the one-off sounds
+let ambience = null;
+
+export function setAmbience(cfg = {}) {
+  if (!ctx) return;
+  if (!ambience) {
+    const bus = gainNode(0.6, master);
+    const src = loopNoise();
+    const layers = {};
+    for (const [name, l] of Object.entries(LAYERS)) {
+      layers[name] = gainNode(0, bus);
+      src.connect(filter(l.type, l.freq, l.q)).connect(layers[name]);
+    }
+    // Slow wobble on the wind so it gusts instead of hissing
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.15;
+    lfo.connect(gainNode(0.08)).connect(layers.wind.gain);
+    lfo.start();
+    ambience = { bus, src, lfo, layers, spots: [] };
+    ambience.timer = setInterval(() => {
+      // A suspended context (hidden tab) would queue these up and play them all at once on return
+      if (muted || ctx.state !== 'running') return;
+      for (const [fn, rate] of ambience.spots) if (Math.random() < rate * AMBIENCE_TICK) fn();
+    }, AMBIENCE_TICK * 1000);
+  }
+  // Crossfade the layers over a couple of seconds as the stretch changes
+  const t = ctx.currentTime;
+  for (const [name, l] of Object.entries(LAYERS)) ambience.layers[name].gain.setTargetAtTime((cfg[name] ?? 0) * l.vol, t, 0.8);
+  ambience.spots = Object.keys(SPOTS).filter((k) => cfg[k] > 0).map((k) => [SPOTS[k], cfg[k]]);
+}
+
+export function stopAmbience() {
+  if (!ambience) return;
+  clearInterval(ambience.timer);
+  fadeOut(ambience.bus, [ambience.src, ambience.lfo]);
+  ambience = null;
 }

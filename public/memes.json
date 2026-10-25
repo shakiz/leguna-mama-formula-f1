@@ -13,16 +13,31 @@
       "cooldown": 400
     },
     "crash": {
-      "sfx": "crash"
+      "sfx": "crash",
+      "vibrate": [
+        90,
+        50,
+        160
+      ]
     },
     "crash_cow": {
       "sfx": [
         "crash",
         "moo"
+      ],
+      "vibrate": [
+        90,
+        50,
+        160
       ]
     },
     "crash_car": {
       "sfx": "crunch",
+      "vibrate": [
+        90,
+        50,
+        160
+      ],
       "chain": [
         {
           "event": "bump_honk",
@@ -114,20 +129,41 @@
       "memeChance": 0.5,
       "cooldown": 300
     },
+    "speedbreaker_fast": {
+      "sfx": "thud",
+      "memeChance": 0.5,
+      "cooldown": 300,
+      "vibrate": [
+        50,
+        110,
+        70
+      ]
+    },
     "pothole": {
       "sfx": "clunk",
-      "cooldown": 300
+      "cooldown": 300,
+      "vibrate": 70
     },
     "crash_manhole": {
       "sfx": [
         "clunk",
         "crash"
+      ],
+      "vibrate": [
+        90,
+        50,
+        160
       ]
     },
     "crash_pedestrian": {
       "sfx": [
         "whistle",
         "boing"
+      ],
+      "vibrate": [
+        90,
+        50,
+        160
       ]
     },
     "helper_pothole": {
@@ -173,6 +209,13 @@
       "sfx": [
         "whistle",
         "sad"
+      ],
+      "vibrate": [
+        60,
+        60,
+        60,
+        60,
+        200
       ]
     },
     "zone_flood": {
