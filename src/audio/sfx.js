@@ -1,4 +1,5 @@
 // Placeholder sounds synthesised with Web Audio: zero download. Swap in recorded clips via memes.json `audio`.
+// The engine is the exception: a recorded loop, with a synth stand-in (see the engine section).
 import { load, save } from '../storage.js';
 
 let ctx = null;
@@ -229,6 +230,20 @@ const SFX = {
     tone('triangle', 620, 430, 0.5, 0.14, 0.05);
     tone('triangle', 910, 650, 0.35, 0.08, 0.08);
   },
+  // Motorbike: a throttle blip ("brrRAAP") and a cheeky pip-pip on its tiny horn
+  rev: () => {
+    tone('sawtooth', 70, 190, 0.32, 0.12);
+    tone('square', 140, 380, 0.32, 0.05);
+    noise(0.3, 0.2, 'bandpass', 500, 1500);
+    tone('square', 1250, 1250, 0.06, 0.07, 0.38);
+    tone('square', 1250, 1250, 0.08, 0.07, 0.48);
+  },
+  // Battery rickshaw: the motor's thin electric whine rising, then its tinny squeeze horn
+  ewhine: () => {
+    tone('sine', 900, 2400, 0.5, 0.06);
+    tone('triangle', 1800, 4200, 0.5, 0.025);
+    tone('square', 1480, 1400, 0.16, 0.06, 0.52);
+  },
   bonus: () => {
     tone('square', 1319, 1319, 0.06, 0.08);
     tone('square', 1760, 1760, 0.14, 0.08, 0.06);
@@ -320,43 +335,97 @@ function fadeOut(bus, sources) {
 }
 
 // --- engine -------------------------------------------------------------------
-// The leguna's putter (a sawtooth through a lowpass) plus tyre roar (filtered noise). Pitch and
-// volume follow the speed; at a standstill it falls silent so the street can be heard.
+// The recorded leguna engine (made by tools/enhance_engine.py) loops under the race; its pitch and
+// volume follow the speed and it idles quietly at a standstill. Until the file has decoded, or if it
+// fails to load, a synthesised putter (a sawtooth through a lowpass) plus tyre roar (filtered noise)
+// stands in.
+const ENGINE_URL = 'audio/engine/leguna-engine.mp3';
+// The file wraps 0.1 s of audio around a 3.5 s loop, so this region loops cleanly whether or not the
+// browser trims the MP3's encoder padding. Keep in sync with --length in the script.
+const ENGINE_LOOP_START = 0.1;
+const ENGINE_LOOP_LENGTH = 3.5;
 let engine = null;
+
+// Fetches now; decodes with the other clips after the first tap
+export function preloadEngine() {
+  preloadClips([ENGINE_URL]);
+}
 
 export function startEngine() {
   if (!ctx || engine) return;
-  const bus = gainNode(0, master);
+  engine = { bus: gainNode(0, master), synth: null, rec: null, ratio: -1, braking: false };
+  if (!startRecordedEngine()) startSynthEngine();
+}
+
+function startSynthEngine() {
+  const out = gainNode(1, engine.bus);
   const body = filter('lowpass', 300, 2);
-  body.connect(bus);
+  body.connect(out);
   const osc = ctx.createOscillator();
   osc.type = 'sawtooth';
   osc.frequency.value = 40;
   osc.connect(body);
   osc.start();
-  const roarGain = gainNode(0, bus);
+  const roarGain = gainNode(0, out);
   const src = loopNoise();
   src.connect(filter('bandpass', 420, 0.7)).connect(roarGain);
-  engine = { bus, osc, body, roarGain, src, ratio: -1 };
+  engine.synth = { out, osc, body, roarGain, src };
 }
 
-// ratio: speed / BASE_SPEED (above 1 with the avenue's speed bonus)
-export function setEngine(ratio) {
+// Returns false while the recording isn't decoded (or never will be)
+function startRecordedEngine() {
+  const buffer = clips.get(ENGINE_URL)?.buffer;
+  if (!buffer) return false;
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  src.loop = true;
+  src.loopStart = ENGINE_LOOP_START;
+  src.loopEnd = ENGINE_LOOP_START + ENGINE_LOOP_LENGTH;
+  src.playbackRate.value = 0.8;
+  src.connect(engine.bus);
+  src.start(0, ENGINE_LOOP_START);
+  engine.rec = src;
+  // The recording took over mid-race: fade the synth out instead of playing both
+  if (engine.synth) {
+    fadeOut(engine.synth.out, [engine.synth.osc, engine.synth.src]);
+    engine.synth = null;
+  }
+  engine.ratio = -1; // apply the current speed on the next setEngine
+  return true;
+}
+
+// ratio: speed / BASE_SPEED (1 at cruising, 1.25 with the avenue's speed bonus, 0 when stopped)
+export function setEngine(ratio, braking = false) {
   if (!engine) return;
+  if (!engine.rec && clips.get(ENGINE_URL)?.buffer) startRecordedEngine();
   const r = Math.min(1.5, Math.max(0, ratio));
-  // Called every frame: only reschedule the ramps when the speed has really changed
-  if (Math.abs(r - engine.ratio) < 0.01) return;
+  // Called every frame: only reschedule the ramps when the speed or brake has really changed
+  if (Math.abs(r - engine.ratio) < 0.01 && braking === engine.braking) return;
   engine.ratio = r;
+  engine.braking = braking;
   const t = ctx.currentTime;
+  if (engine.rec) {
+    // Idle 0.8x, cruising 1x, avenue top speed 1.25x. Quiet idle, fuller at speed and a touch softer
+    // on the brake; kept under the dhol, voice clips and event sounds.
+    const rate = r <= 1 ? 0.8 + 0.2 * r : Math.min(1.3, r);
+    const gain = (r < 0.02 ? 0.08 : 0.12 + 0.08 * Math.min(r, 1.25)) * (braking ? 0.8 : 1);
+    engine.rec.playbackRate.setTargetAtTime(rate, t, 0.15);
+    engine.bus.gain.setTargetAtTime(gain, t, 0.12);
+    return;
+  }
+  // Synth stand-in: falls silent at a standstill so the street can be heard
+  const s = engine.synth;
   engine.bus.gain.setTargetAtTime(r < 0.02 ? 0 : 0.09 + 0.07 * r, t, 0.12);
-  engine.osc.frequency.setTargetAtTime(38 + 46 * r, t, 0.12);
-  engine.body.frequency.setTargetAtTime(260 + 420 * r, t, 0.12);
-  engine.roarGain.gain.setTargetAtTime(0.5 * r * r, t, 0.12);
+  s.osc.frequency.setTargetAtTime(38 + 46 * r, t, 0.12);
+  s.body.frequency.setTargetAtTime(260 + 420 * r, t, 0.12);
+  s.roarGain.gain.setTargetAtTime(0.5 * r * r, t, 0.12);
 }
 
 export function stopEngine() {
   if (!engine) return;
-  fadeOut(engine.bus, [engine.osc, engine.src]);
+  const sources = engine.rec ? [engine.rec] : [];
+  if (engine.synth) sources.push(engine.synth.osc, engine.synth.src);
+  fadeOut(engine.bus, sources);
   engine = null;
 }
 
