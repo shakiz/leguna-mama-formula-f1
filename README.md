@@ -94,12 +94,14 @@ ambience: { hum: 0.4, rain: 0.8, drips: 0.8, bells: 0.2 }, // Asad Avenue
 | `are-era-kara.mp3` | `vip_spotted` | "আরে এরা কারা?" |
 | `assalamualaikum-boro-bhai.mp3` | `pass_tesla` | "আসসালামু আলাইকুম বড় ভাই" |
 | `dhur-beta.mp3` | `rickshaw_dhur` | "ধুর বেটা, এইটা হইল বেটা?" |
+| `apnare-ha-thik-ache-ha.mp3` | `voice_crash` (chained from every other `crash` event) | "আপনারে হা ঠিক আছে হা?" |
 | `khela-hobe.mp3` | `speedup` | "খেলা হবে!" |
 | `aj-chole-jacchi.mp3` | `finish_voice` | "আজ চলে যাচ্ছি, কিন্তু যাচ্ছি না" |
 
 Every recorded clip played from an `audio` field is treated as a voice, automatically, with no per-clip code (`playClip` in `src/audio/sfx.js`):
 
-- **One voice at a time**: a new clip fades out (60 ms) whatever clip is still talking, so two lines never overlap. The newest wins.
+- **One voice at a time**: a new clip fades out (60 ms) whatever clip is still talking, so two lines never overlap. The newest wins, except for events marked `"polite": true` (`speedup`, `pass_tesla`): those stay quiet rather than cut someone off, so a crash line isn't interrupted by "খেলা হবে" as the leguna gets back up to speed.
+- **Loudness**: event sounds play through their own stage at `FX_GAIN` (1.5×) and voice clips at `VOICE_GAIN` (1.4×), above the music, ambience and engine, with a limiter on the output so nothing clips. Each clip is also levelled when it decodes, to about -11 dBFS average (`VOICE_RMS`, peaks capped by `VOICE_MAX_PEAK`), so quiet and loud recordings come out even. Tune these at the top of `sfx.js`.
 - **Ducking**: while a voice plays, the dhol music and street ambience drop to 35% and the engine to 70% (over ~120 ms), and come back over ~300 ms once the last voice ends. Tune `DUCK` in `sfx.js`.
 - **Repeats**: give clip events a `cooldown` so the same line can't come back too soon (`speedup` 25 s, `pass_tesla` 10 s, `finish_voice` 5 s, `vip_spotted` 4 s, `rickshaw_dhur` 3 s). Meme lines rotate through a shuffle-bag, and non-forced popups have their own shared cooldown.
 - Mute silences clips like everything else (and skips new ones); a hidden tab suspends all audio.
