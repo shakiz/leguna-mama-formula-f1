@@ -69,8 +69,9 @@ export const KINDS = {
 
 // The VIP: `vip` in a stretch is the chance of one per roll, rolled every VIP.roll px of route.
 // It drives `boost` px/s faster than the stretch's cruising speed; the warning shows `lead` s before it
-// is spawned `spawnBelow` px under the screen. Moving out of its lane in time pays `bonus`.
-export const VIP = { roll: 1400, boost: 250, lead: 0.6, spawnBelow: 200, bonus: 5 };
+// is spawned `spawnBelow` px under the screen, so it reaches the leguna about 2.2 s after the warning
+// (enough to react on a phone). Moving out of its lane in time pays `bonus`.
+export const VIP = { roll: 1400, boost: 250, lead: 1.2, spawnBelow: 200, bonus: 5 };
 
 // Bends: each stretch lists [share of the stretch, road position at its end]. The position is in
 // BEND_SHIFT units sideways (-1 = left, 1 = right); the road eases there with a smooth S, and a run of

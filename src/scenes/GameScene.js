@@ -48,9 +48,18 @@ const LEAN_RATE = 3; // per second
 const STREAK_FROM = BASE_SPEED * 0.95;
 const STREAK_FULL = BASE_SPEED * 1.25;
 // The VIP brakes for slower traffic it sees within VIP_LOOK px ahead in its lane
-const VIP_LOOK = 300;
+const VIP_LOOK = 200;
 const VIP_BRAKE = 1200; // px/s²
 const VIP_ACCEL = 500; // px/s²
+const VIP_GONE = -300; // row above the screen where the VIP has driven off and is removed
+// A VIP only takes a lane it can drive up to VIP_CLEAR px above the leguna without braking for anything;
+// beyond that it changes lane around traffic or queues like everyone else
+const VIP_CLEAR = 500;
+// When a VIP is due, its lane is kept free of new traffic until it has cleared (up to VIP_WAIT s)
+const VIP_WAIT = 8;
+const VIP_SWITCH_EVERY = 0.8; // s between its lane changes around traffic
+const VIP_RETREAT = 260; // px/s it drops back at when it gives up overtaking
+const VIP_LEGUNA_LOOK = 260; // extra px it keeps from a leguna that has stopped in its lane
 
 const laneOf = (rx) => Phaser.Math.Clamp(Math.floor((rx - ROAD_X) / LANE_W), 0, LANES - 1);
 const nearJunction = (d) => features.some((f) => f.type === 'junction' && Math.abs(d - f.d) < JUNCTION.clear);
@@ -114,6 +123,7 @@ export default class GameScene extends Phaser.Scene {
     this.slowedDown = false;
     this.lastMemeAt = -Infinity;
     this.vip = null;
+    this.vipPending = null;
     this.sinceVip = 0;
 
     this.player = this.add.image(0, 0, 'leguna').setDepth(20);
@@ -336,7 +346,8 @@ export default class GameScene extends Phaser.Scene {
         // ...and not just up here: vehicles close in at different speeds, so a slow, long one (the BRTC)
         // can still end up side by side with two others by the time they reach the player
         const h = this.textures.getFrame(def.tex).height;
-        free = free.filter((l) => !this.closesRoad(l, h, laneVy(l)));
+        // nor in a VIP's lane while it's on its way (it would have to queue behind)
+        free = free.filter((l) => l !== this.vipLane() && !this.closesRoad(l, h, laneVy(l)));
         if (!free.length) return;
       }
       lane = Phaser.Utils.Array.GetRandom(free);
@@ -422,10 +433,11 @@ export default class GameScene extends Phaser.Scene {
     // On screen (the HUD may still cover its nose), and still SWERVE_SAFE ahead of the leguna once the move is done
     if (o.ry < 0) return false;
     // Never cut into a VIP's lane while it's on its way: it would have to queue behind
-    if (this.vip?.car?.scene && to === this.vip.car.lane) return false;
-    if (this.vip && !this.vip.car && to === this.vip.lane) return false;
+    if (to === this.vipLane()) return false;
     const drift = (Math.max(this.speed, cruise) - vy) * ((w.dur + 50) / 1000); // +50 ms for frame jitter
     if (PLAYER_Y - this.player.displayHeight / 2 - (o.ry + h / 2) - drift < SWERVE_SAFE) return false;
+    // Not while people are crossing nearby: they walk into lanes, which the check below can't foresee
+    if (this.things.some((p) => p.vx && p.kind === 'pedestrian' && !p.done && Math.abs(p.ry - o.ry) < 400)) return false;
     // Target lane clear now and for the next SWERVE_LOOKAHEAD s at current speeds; keepGap() handles later
     for (const p of this.things) {
       if (p === o || !p.kind || p.done || !KINDS[p.kind].solid || !this.inLane(p, to)) continue;
@@ -438,16 +450,30 @@ export default class GameScene extends Phaser.Scene {
     return !this.closesRoad(to, h, vy, o.ry, o);
   }
 
-  // Never drive through the vehicle ahead: tuck in behind it at its speed, and look for a gap soon
+  // Never drive through the vehicle ahead: tuck in behind it at its speed, and look for a gap soon.
+  // Back to its own speed once the way is clear. People crossing (anything moving sideways) are out of
+  // the lane in a moment, and stopping dead for them would leave an obstacle no spawn check foresaw.
   keepGap(o) {
+    let vy = o.baseVy;
     for (const p of this.things) {
-      if (p === o || !p.kind || p.done || !KINDS[p.kind].solid || p.vy >= o.vy || !this.inLane(p, o.lane)) continue;
+      if (p === o || !p.kind || p.done || p.vx || !KINDS[p.kind].solid || p.vy >= vy || !this.inLane(p, o.lane)) continue;
       const d = o.ry - p.ry;
       if (d > 0 && d < (o.displayHeight + p.displayHeight) / 2 + SWERVE_GAP) {
-        o.vy = p.vy;
+        vy = p.vy;
         o.nextWeave = Math.min(o.nextWeave, 0.3);
       }
     }
+    o.vy = vy;
+  }
+
+  // Traffic the leguna has overtaken never drives into it from behind (say while it waits at the red
+  // light): it slows to the leguna's speed when it gets close, and picks its own speed up again after
+  yieldBehind(o) {
+    if (o.ownVy === undefined) o.ownVy = o.vy;
+    else if (!KINDS[o.kind].weave) o.vy = o.ownVy; // lane changers get theirs back from keepGap()
+    if (!this.inLane(o, this.lane) || o.vy <= this.speed) return;
+    const gap = o.ry - o.displayHeight / 2 - (PLAYER_Y + this.player.displayHeight / 2);
+    if (gap > -20 && gap < 60) o.vy = this.speed;
   }
 
   // Overtaking: the vehicle goes from fully ahead of the leguna to fully behind it without a crash
@@ -612,7 +638,7 @@ export default class GameScene extends Phaser.Scene {
   // Lanes a VIP may use now: nothing solid in it from a little ahead of the leguna down to below the
   // screen (it would have to queue behind that and never overtake), the other two lanes are never both
   // blocked while it passes, and if it's the leguna's lane, a lane next to it stays clear until then
-  vipLanes() {
+  vipLanes(needClear = true) {
     const [from, to] = this.vipWindow();
     const solids = this.things.filter((o) => o.kind && !o.done && !o.vx && o.lane >= 0 && KINDS[o.kind].solid);
     const wins = [0, 1, 2].map((l) => solids
@@ -621,11 +647,39 @@ export default class GameScene extends Phaser.Scene {
       .filter(Boolean));
     const freeOver = (l, a, b) => !wins[l].some((w) => w[0] < b && w[1] > a);
     return [0, 1, 2].filter((lane) => {
-      if (solids.some((o) => this.inLane(o, lane) && o.ry > PLAYER_Y - 400)) return false;
+      // It must get well past the leguna without catching anything: it's faster than everything
+      if (needClear && this.vipBlocked(lane, H + VIP.spawnBelow, VIP.lead, PLAYER_Y - VIP_CLEAR)) return false;
       const [a, b] = [0, 1, 2].filter((l) => l !== lane);
       if (wins[a].some((wa) => wins[b].some((wb) => Math.max(from, wa[0], wb[0]) < Math.min(to, wa[1], wb[1])))) return false;
       return lane !== this.lane || [lane - 1, lane + 1].some((l) => l >= 0 && l < LANES && freeOver(l, 0, to));
     });
+  }
+
+  // Would a VIP whose front is at row y0 in `t0` s (from now), driving at `vy`, have to brake for something
+  // in `lane` before its front is up at row `until`? Rows assume the leguna holds cruising speed; whether
+  // it catches up doesn't depend on that, since both drive at their own speeds.
+  vipBlocked(lane, y0, t0, until, vy = null, self = null) {
+    const cruise = BASE_SPEED * (STRETCHES[this.stretchIdx].speedBonus ?? 1);
+    const vipVy = vy ?? cruise + VIP.boost;
+    const h = this.textures.getFrame('vip').height;
+    return this.things.some((o) => {
+      if (o === self || !o.kind || o.done || o.vx || o.overtake || !KINDS[o.kind].solid || !this.inLane(o, lane)) return false;
+      const need = (h + o.displayHeight) / 2 + VIP_LOOK;
+      const yo0 = o.ry + (cruise - o.vy) * t0; // where it is when the VIP starts
+      if (yo0 > y0 + need) return false; // behind the VIP
+      const rel = vipVy - o.vy;
+      if (rel <= 0) return false;
+      const t = (y0 - yo0 - need) / rel; // s after t0 until the VIP has to brake
+      return t <= 0 || y0 - (vipVy - cruise) * t > until;
+    });
+  }
+
+  // The lane a VIP is using or about to use (-1 when there's none)
+  vipLane() {
+    const v = this.vip;
+    if (!v) return this.vipPending?.lane ?? -1;
+    if (v.leaving) return -1;
+    return v.car?.scene ? v.car.lane : v.lane;
   }
 
   // forceLane skips the fairness checks (dev key V)
@@ -637,6 +691,7 @@ export default class GameScene extends Phaser.Scene {
       // Coming for our lane half the time when that's fair: making way is the whole point
       lane = lanes.includes(this.lane) && Math.random() < 0.5 ? this.lane : Phaser.Utils.Array.GetRandom(lanes);
     }
+    this.vipPending = null;
     const [from, to] = this.vipWindow();
     const now = this.time.now / 1000;
     this.vip = { lane, t: 0, car: null, inLane: lane === this.lane, passed: false, from: now + from, until: now + to };
@@ -661,13 +716,31 @@ export default class GameScene extends Phaser.Scene {
   updateVip(dt, dy) {
     const v = this.vip;
     if (!v) {
-      if (this.finished || this.distance > ROUTE_LENGTH - FINISH_BANNER_LEAD - 2000) return;
+      const cruise = BASE_SPEED * (STRETCHES[this.stretchIdx].speedBonus ?? 1);
+      const late = this.finished || this.distance > ROUTE_LENGTH - FINISH_BANNER_LEAD - 2000;
+      // Not around the signal, or while the leguna is crawling (it would arrive with no time to react)
+      const ok = !late && !this.junction && this.speed > cruise * 0.7;
+      const p = this.vipPending;
+      if (p) {
+        // Due: keep its lane free of new traffic (spawn() and lane changers check vipLane()) and start the
+        // warning once the traffic already in it has moved on; give up quietly if that takes too long
+        p.t += dt;
+        if (p.t > VIP_WAIT || late || (STRETCHES[this.stretchIdx].vip ?? 0) === 0) this.vipPending = null;
+        else if (ok && this.vipLanes().includes(p.lane)) this.startVip(p.lane);
+        return;
+      }
+      if (late) return;
       this.sinceVip += dy;
       if (this.sinceVip < VIP.roll) return;
       this.sinceVip = 0;
-      const cruise = BASE_SPEED * (STRETCHES[this.stretchIdx].speedBonus ?? 1);
-      // Not around the signal, or while the leguna is crawling (it would arrive with no time to react)
-      if (Math.random() < (STRETCHES[this.stretchIdx].vip ?? 0) && !this.junction && this.speed > cruise * 0.7) this.startVip();
+      if (!ok || Math.random() >= (STRETCHES[this.stretchIdx].vip ?? 0)) return;
+      // Pick the lane now among those that keep the road fair; coming for our lane half the time when
+      // that's fair, since making way is the whole point
+      const lanes = this.vipLanes(false);
+      if (!lanes.length) return;
+      const lane = lanes.includes(this.lane) && Math.random() < 0.5 ? this.lane : Phaser.Utils.Array.GetRandom(lanes);
+      if (this.vipLanes().includes(lane)) this.startVip(lane);
+      else this.vipPending = { lane, t: 0 };
       return;
     }
     v.t += dt;
@@ -700,8 +773,14 @@ export default class GameScene extends Phaser.Scene {
       v.warn?.destroy();
       return;
     }
+    if (car.ry < VIP_GONE - car.displayHeight / 2 || car.ry > H + VIP.spawnBelow + 60) {
+      // Driven off the top, or dropped back off the bottom after giving up: done
+      car.destroy();
+      this.things.splice(this.things.indexOf(car), 1);
+      return;
+    }
     car.setTexture(flash ? 'vipFlash' : 'vip');
-    this.driveVip(car, dt);
+    this.driveVip(car, dt, v);
     if (!v.passed && car.ry + car.displayHeight / 2 < PLAYER_Y - this.player.displayHeight / 2) {
       v.passed = true;
       // Moved out of its lane in good time (a last-moment swerve is a closeturn instead)
@@ -713,9 +792,16 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  // Full speed up its lane; for slower traffic ahead it changes lane once if there's room (never into
-  // the leguna's lane until it's well past), otherwise it brakes and queues
-  driveVip(car, dt) {
+  // Full speed up its lane. If slower traffic ahead would make it brake, it changes lane when that's
+  // fair (a lane it can get up without catching anything, never into the leguna's lane before it's well
+  // past, and only once it's on screen so the move can be seen); if it can't while still behind the
+  // leguna, it gives up quietly: drops back and leaves at the bottom, with no bonus. Past the leguna it
+  // queues behind the traffic and keeps looking for a gap.
+  driveVip(car, dt, v) {
+    if (v.leaving) {
+      car.vy = Math.max(car.vy - VIP_BRAKE * dt, BASE_SPEED * (STRETCHES[this.stretchIdx].speedBonus ?? 1) - VIP_RETREAT);
+      return;
+    }
     let ahead = null;
     let gap = Infinity;
     for (const o of this.things) {
@@ -726,24 +812,51 @@ export default class GameScene extends Phaser.Scene {
         ahead = o;
       }
     }
+    // A leguna that has (nearly) stopped in its lane gets braked for, like traffic, and from further back:
+    // the warning assumed it would keep moving
+    const cruise = BASE_SPEED * (STRETCHES[this.stretchIdx].speedBonus ?? 1);
+    if (car.lane === this.lane && car.ry > PLAYER_Y && this.speed < cruise * 0.5) {
+      const g = car.ry - PLAYER_Y - (car.displayHeight + this.player.displayHeight) / 2 - VIP_LEGUNA_LOOK;
+      if (g < gap) {
+        gap = Math.max(0, g);
+        ahead = { vy: this.speed };
+      }
+    }
     if (!ahead || gap > VIP_LOOK) {
       car.vy = Math.min(car.fast, car.vy + VIP_ACCEL * dt);
       return;
     }
-    if (!car.switched) {
-      const past = car.ry + car.displayHeight / 2 < PLAYER_Y - this.player.displayHeight / 2 - 150;
+    const top = car.ry - car.displayHeight / 2;
+    const past = car.ry + car.displayHeight / 2 < PLAYER_Y - this.player.displayHeight / 2 - 150;
+    car.sinceSwitch = (car.sinceSwitch ?? VIP_SWITCH_EVERY) + dt;
+    if (car.sinceSwitch >= VIP_SWITCH_EVERY && !car.moving && top < H) {
       const to = Phaser.Utils.Array.Shuffle([car.lane - 1, car.lane + 1]).find((l) => l >= 0 && l < LANES
         && (l !== this.lane || past)
+        && !this.vipBlocked(l, top, 0, Math.min(top - 400, PLAYER_Y - VIP_CLEAR), car.fast, car)
         && !this.things.some((o) => o !== car && o.kind && !o.done && this.inLane(o, l) && KINDS[o.kind].solid
-          && Math.abs(o.ry - car.ry) < (o.displayHeight + car.displayHeight) / 2 + 260));
+          && Math.abs(o.ry - car.ry) < (o.displayHeight + car.displayHeight) / 2 + 60));
       if (to !== undefined) {
+        car.sinceSwitch = 0;
         car.switched = true;
         const dir = Math.sign(to - car.lane);
+        car.moving = [car.lane, to];
         car.lane = to;
-        this.tweens.add({ targets: car, rx: laneX(to), duration: 450, ease: 'Sine.easeInOut' });
+        v.lane = to;
+        this.tweens.add({
+          targets: car, rx: laneX(to), duration: 450, ease: 'Sine.easeInOut', onComplete: () => (car.moving = null),
+        });
         this.tweens.add({ targets: car, tilt: dir * 8, duration: 225, yoyo: true });
+        car.vy = Math.min(car.fast, car.vy + VIP_ACCEL * dt);
         return;
       }
+    }
+    if (!past && !v.passed && car.ry > PLAYER_Y) {
+      // Stuck behind traffic below the leguna: give up and fall back off the bottom of the screen
+      v.leaving = true;
+      v.passed = true;
+      v.warn?.destroy();
+      v.warn = null;
+      return;
     }
     car.vy = gap < 40 ? Math.min(car.vy, ahead.vy) : Math.max(ahead.vy, car.vy - VIP_BRAKE * dt);
   }
@@ -1052,6 +1165,7 @@ export default class GameScene extends Phaser.Scene {
       if (o.kind && !o.done && !this.finished) {
         const def = KINDS[o.kind];
         if (def.weave) this.weave(o, dt);
+        if (def.solid && !o.vx && !o.overtake && o.lane >= 0) this.yieldBehind(o);
         this.collide(o);
         if (!o.done && def.solid) this.checkProximity(o);
         if (!o.done && def.pass) this.checkPass(o);

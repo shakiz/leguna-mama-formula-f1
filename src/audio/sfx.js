@@ -279,11 +279,11 @@ const SFX = {
   // VIP siren: a two-tone wail rising and falling, swelling in from behind and fading as it drives off
   siren: () => {
     const t = ctx.currentTime;
-    const dur = 3.6;
+    const dur = 4.4; // the VIP reaches the leguna ~2.2 s after the warning and is past it ~1.5 s later
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.001, t);
     g.gain.exponentialRampToValueAtTime(0.11, t + 0.5);
-    g.gain.setValueAtTime(0.11, t + 2.2);
+    g.gain.setValueAtTime(0.11, t + 3.2);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     const f = ctx.createBiquadFilter();
     f.type = 'lowpass';
