@@ -170,6 +170,36 @@ const SIZES = {
   tree: [100, 100], stall: [104, 124],
 };
 
+// Top-down Dhaka rooftops for the strip beyond the pavement: parapet, stair room, the black water
+// tanks every building has, AC units and a washing line
+const ROOF_COLORS = [0xe8d8c4, 0xc9d6df, 0xf0c9a8, 0xd6e2c0];
+
+function roof(g, color, seed) {
+  const rnd = new Phaser.Math.RandomDataGenerator([`roof${seed}`]);
+  const darker = Phaser.Display.Color.ValueToColor(color).darken(18).color;
+  g.fillStyle(0x000000, 0.25).fillRect(8, 8, 192, 212);
+  g.fillStyle(color).fillRect(0, 0, 192, 212);
+  g.lineStyle(8, darker).strokeRect(4, 4, 184, 204);
+  g.fillStyle(darker).fillRect(rnd.between(20, 110), rnd.between(20, 130), 62, 52);
+  for (let i = 0; i < rnd.between(1, 2); i++) {
+    const x = rnd.between(36, 156);
+    const y = rnd.between(36, 176);
+    g.fillStyle(0x1e1e1e).fillCircle(x, y, 18);
+    g.fillStyle(0x4a4a4a).fillCircle(x - 5, y - 5, 6);
+  }
+  g.fillStyle(0xbdbdbd);
+  for (let i = 0; i < 2; i++) g.fillRect(rnd.between(16, 150), rnd.between(150, 186), 26, 16);
+  const ly = rnd.between(60, 150);
+  g.lineStyle(2, 0x777777).lineBetween(20, ly, 172, ly);
+  for (let x = 30; x < 160; x += 22) g.fillStyle(rnd.pick([C.red, C.teal, C.yellow, C.magenta, C.blue])).fillRect(x, ly, 12, 16);
+}
+
+ROOF_COLORS.forEach((color, i) => {
+  DRAW[`roof${i}`] = (g) => roof(g, color, i);
+  SIZES[`roof${i}`] = [200, 220];
+});
+export const ROOFS = ROOF_COLORS.map((_, i) => `roof${i}`);
+
 function makeRoad(g) {
   const h = 256;
   g.fillStyle(C.asphalt).fillRect(0, 0, W, h);

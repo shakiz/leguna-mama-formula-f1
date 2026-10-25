@@ -8,12 +8,20 @@ import { startMusic, stopMusic, isMuted, setMuted } from '../audio/sfx.js';
 import { pickMeme, getEvent, playSound } from '../memes.js';
 import { load, save } from '../storage.js';
 import { text, artFrame } from '../ui.js';
+import { buildTrack, offsetAt, angleAt } from '../track.js';
+import RoadRenderer from '../road.js';
+import { ROOFS } from '../art/textures.js';
 
 const MEME_COOLDOWN = 1800; // ms between non-forced meme popups
 const BAR_X = 40;
 const BAR_W = W - 80;
 // Distance from spawn (y = -120) to the player, so the finish banner arrives as the route ends
 const FINISH_BANNER_LEAD = PLAYER_Y + 120;
+const BUILDING_GAP = 205; // rooftops are 220 tall, so neighbours overlap a little like a real street
+
+// Everything in the world lives in road coordinates: rx is the sideways position on a straight road
+// (what laneX gives) and ry the screen row. place() bends that onto the screen, so gameplay, lanes and
+// collisions never need to know about curves. Optional extras: tilt (deg) and lift (px) for animations.
 
 function weightedPick(weights) {
   const entries = Object.entries(weights);
@@ -31,7 +39,8 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create() {
-    this.road = this.add.tileSprite(W / 2, H / 2, W, H, 'road');
+    buildTrack();
+    this.road = new RoadRenderer(this, this);
     this.things = [];
     this.lane = 1;
     this.speed = 0;
@@ -47,12 +56,21 @@ export default class GameScene extends Phaser.Scene {
     this.sinceSpawn = 0;
     this.nextGap = 700;
     this.sinceDecor = 0;
+    this.sinceBuilding = 0;
+    this.playerOff = 0;
     this.stretchIdx = -1;
     this.finished = false;
     this.finishBanner = false;
     this.lastMemeAt = -Infinity;
 
-    this.player = this.add.image(laneX(1), PLAYER_Y, 'leguna').setDepth(20);
+    this.player = this.add.image(0, 0, 'leguna').setDepth(20);
+    this.player.rx = laneX(1);
+    this.player.ry = PLAYER_Y;
+    this.player.tilt = 0;
+
+    // Fill the street before the first frame so the roadside isn't empty at the start
+    for (let y = H + 110; y > -160; y -= BUILDING_GAP) this.spawnBuildings(y);
+    for (let y = H + 60; y > -140; y -= 240) this.spawnDecor(y);
 
     this.createHud();
     this.setupInput();
@@ -78,6 +96,10 @@ export default class GameScene extends Phaser.Scene {
         if (!kind) return;
         const lane = e.shiftKey ? (this.lane === LANES - 1 ? this.lane - 1 : this.lane + 1) : this.lane;
         this.spawn(kind, lane);
+      });
+      // C toggles a line down the middle of the road, for tuning bends
+      kb.on('keydown-C', () => {
+        this.road.showCentre = !this.road.showCentre;
       });
     }
 
@@ -108,17 +130,17 @@ export default class GameScene extends Phaser.Scene {
     this.checkNearMiss(this.lane, dir);
     this.lane = to;
     this.steerTween?.stop();
-    this.steerTween = this.tweens.add({ targets: this.player, x: laneX(to), duration: 130, ease: 'Sine.easeOut' });
-    this.player.angle = dir * 10;
+    this.steerTween = this.tweens.add({ targets: this.player, rx: laneX(to), duration: 130, ease: 'Sine.easeOut' });
+    this.player.tilt = dir * 10;
   }
 
   // Dodging out of a lane just before hitting something is a close turn. checkProximity pays it out
   // once the vehicle is outside the close zone; crashing into it before then cancels the payout.
   checkNearMiss(fromLane, dir) {
-    const playerTop = this.player.y - this.player.displayHeight / 2;
+    const playerTop = PLAYER_Y - this.player.displayHeight / 2;
     for (const o of this.things) {
       if (!o.kind || o.done || o.lane !== fromLane || !KINDS[o.kind].solid) continue;
-      const bottom = o.y + o.displayHeight / 2;
+      const bottom = o.ry + o.displayHeight / 2;
       if (bottom <= playerTop - 150 || bottom >= playerTop + 10) continue;
       if (!o.close) this.fireEvent(dir > 0 ? 'helper_left' : 'helper_right', { meme: false });
       o.close = 'closeturn';
@@ -129,9 +151,9 @@ export default class GameScene extends Phaser.Scene {
   // straight away, and the bonus lands once the vehicle has cleared the zone
   checkProximity(o) {
     const p = this.player;
-    const dx = o.x - p.x;
+    const dx = o.rx - p.rx;
     const gapX = Math.abs(dx) - (o.displayWidth + p.displayWidth) / 2;
-    const gapY = Math.abs(o.y - p.y) - (o.displayHeight + p.displayHeight) / 2;
+    const gapY = Math.abs(o.ry - PLAYER_Y) - (o.displayHeight + p.displayHeight) / 2;
     const inZone = gapX < CLOSE_MARGIN && gapY < CLOSE_MARGIN;
     if (inZone && !o.close) {
       o.close = 'close';
@@ -146,6 +168,28 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  // --- road geometry -------------------------------------------------------
+
+  // Route distance shown at screen row y, and the row showing route distance d
+  distAt(y) {
+    return this.distance + (PLAYER_Y - y);
+  }
+
+  yOf(d) {
+    return PLAYER_Y - (d - this.distance);
+  }
+
+  // Sideways shift of row y, relative to the player's row so the leguna stays put and the road bends around it
+  offAt(y) {
+    return offsetAt(this.distAt(y)) - this.playerOff;
+  }
+
+  place(o) {
+    o.x = o.rx + this.offAt(o.ry);
+    o.y = o.ry + (o.lift ?? 0);
+    o.rotation = angleAt(this.distAt(o.ry)) + Phaser.Math.DegToRad(o.tilt ?? 0);
+  }
+
   // --- world -------------------------------------------------------------
 
   enterStretch(i) {
@@ -156,17 +200,21 @@ export default class GameScene extends Phaser.Scene {
   }
 
   spawnBanner(label, color) {
-    const c = this.add.container(0, -120).setDepth(30);
+    // Built around the road's centre so it pivots correctly on bends
+    const c = this.add.container(0, 0).setDepth(30);
+    c.rx = W / 2;
+    c.ry = -120;
     const g = this.add.graphics();
-    const x = ROAD_X - 50;
+    const x = ROAD_X - 50 - W / 2;
     const w = ROAD_W + 100;
     g.fillStyle(0x555560).fillRect(x - 6, -10, 18, 60).fillRect(x + w - 12, -10, 18, 60);
     g.fillStyle(0x000000, 0.3).fillRoundedRect(x + 6, -36, w, 84, 14);
     g.fillStyle(color).fillRoundedRect(x, -46, w, 84, 14);
     g.lineStyle(5, COLORS.yellow).strokeRoundedRect(x, -46, w, 84, 14);
-    const label_ = text(this, W / 2, -4, label, 42, CSS.cream, { stroke: CSS.ink, strokeThickness: 6 }).setOrigin(0.5);
+    const label_ = text(this, 0, -4, label, 42, CSS.cream, { stroke: CSS.ink, strokeThickness: 6 }).setOrigin(0.5);
     c.add([g, label_]);
     c.vy = 0;
+    this.place(c);
     this.things.push(c);
   }
 
@@ -177,7 +225,7 @@ export default class GameScene extends Phaser.Scene {
     const def = KINDS[kind];
     let lane = forceLane;
     if (lane === undefined) {
-      const nearTop = this.things.filter((o) => o.kind && o.y < 220);
+      const nearTop = this.things.filter((o) => o.kind && o.ry < 220);
       const free = [0, 1, 2].filter((l) => !nearTop.some((o) => o.lane === l));
       if (!free.length) return;
       // Always leave at least one lane without a solid obstacle
@@ -187,7 +235,9 @@ export default class GameScene extends Phaser.Scene {
       }
       lane = Phaser.Utils.Array.GetRandom(free);
     }
-    const img = this.add.image(laneX(lane), -200, def.tex).setDepth(kind === 'puddle' ? 5 : 15);
+    const img = this.add.image(0, 0, def.tex).setDepth(kind === 'puddle' ? 5 : 15);
+    img.rx = laneX(lane);
+    img.ry = -200;
     img.kind = kind;
     img.lane = lane;
     img.done = false;
@@ -196,26 +246,43 @@ export default class GameScene extends Phaser.Scene {
     for (const o of this.things) {
       if (o.kind && o.lane === lane) img.vy = Math.max(img.vy, o.vy);
     }
-    if (kind === 'passenger') this.tweens.add({ targets: img, angle: 10, duration: 260, yoyo: true, repeat: -1 });
-    if (kind === 'cow') img.setAngle(Phaser.Math.Between(-20, 20));
+    if (kind === 'passenger') this.tweens.add({ targets: img, tilt: 10, duration: 260, yoyo: true, repeat: -1 });
+    if (kind === 'cow') img.tilt = Phaser.Math.Between(-20, 20);
+    this.place(img);
     this.things.push(img);
     this.fireEvent(`spawn_${kind}`, { meme: false });
   }
 
-  spawnDecor() {
+  spawnDecor(ry = -140) {
     const left = Math.random() < 0.5;
     const tex = Math.random() < 0.6 ? 'tree' : 'stall';
-    const img = this.add.image(left ? ROAD_X / 2 - 6 : W - ROAD_X / 2 + 6, -140, tex).setDepth(4);
+    const img = this.add.image(0, 0, tex).setDepth(4);
+    img.rx = left ? ROAD_X / 2 - 6 : W - ROAD_X / 2 + 6;
+    img.ry = ry;
     if (tex === 'stall') img.setFlipX(!left);
     img.vy = 0;
+    this.place(img);
     this.things.push(img);
+  }
+
+  // A rooftop on each side beyond the pavement; mostly off-screen until a bend slides the road over
+  spawnBuildings(ry = -160) {
+    for (const rx of [-102, W + 102]) {
+      const img = this.add.image(0, 0, Phaser.Utils.Array.GetRandom(ROOFS)).setDepth(3);
+      img.rx = rx;
+      img.ry = ry;
+      img.vy = 0;
+      img.setFlipX(Math.random() < 0.5);
+      this.place(img);
+      this.things.push(img);
+    }
   }
 
   // --- collisions ---------------------------------------------------------
 
   collide(o) {
-    const dx = Math.abs(o.x - this.player.x);
-    const dy = Math.abs(o.y - this.player.y);
+    const dx = Math.abs(o.rx - this.player.rx);
+    const dy = Math.abs(o.ry - PLAYER_Y);
     if (dx > LANE_W * 0.55 || dy > ((o.displayHeight + this.player.displayHeight) / 2) * 0.8) return;
     const def = KINDS[o.kind];
 
@@ -224,7 +291,7 @@ export default class GameScene extends Phaser.Scene {
       this.fare += FARE_PER_PASSENGER;
       this.fireEvent('pickup');
       this.floatText(`+৳${num(FARE_PER_PASSENGER)}`, o.x, o.y, CSS.yellow);
-      this.tweens.add({ targets: o, y: o.y - 40, scale: 0.3, alpha: 0, duration: 250 });
+      this.tweens.add({ targets: o, lift: -40, scale: 0.3, alpha: 0, duration: 250 });
     } else if (def.effect === 'slow') {
       o.done = true;
       this.slow = 1.3;
@@ -239,8 +306,8 @@ export default class GameScene extends Phaser.Scene {
       this.invuln = 2;
       this.cameras.main.shake(260, 0.014);
       this.fireEvent(`crash_${o.kind}`, { forceMeme: true });
-      const push = o.x < this.player.x ? -70 : 70;
-      this.tweens.add({ targets: o, x: o.x + push, angle: push / 3, duration: 300, ease: 'Cubic.easeOut' });
+      const push = o.rx < this.player.rx ? -70 : 70;
+      this.tweens.add({ targets: o, rx: o.rx + push, tilt: (o.tilt ?? 0) + push / 3, duration: 300, ease: 'Cubic.easeOut' });
     }
   }
 
@@ -367,11 +434,11 @@ export default class GameScene extends Phaser.Scene {
 
     const dy = this.speed * dt;
     this.distance += dy;
-    this.road.tilePositionY -= dy;
+    this.playerOff = offsetAt(this.distance);
 
-    this.player.angle *= 0.85;
+    this.player.tilt *= 0.85;
     this.player.alpha = this.invuln > 0 && Math.floor(this.invuln * 12) % 2 ? 0.35 : 1;
-    this.player.y = PLAYER_Y + Math.sin(this.time.now / 45) * (this.speed > 0 ? 1.5 : 0.6);
+    this.player.lift = Math.sin(this.time.now / 45) * (this.speed > 0 ? 1.5 : 0.6);
 
     const progress = Math.min(1, this.distance / ROUTE_LENGTH);
     const next = STRETCHES[this.stretchIdx + 1];
@@ -394,11 +461,16 @@ export default class GameScene extends Phaser.Scene {
       this.sinceDecor = 0;
       this.spawnDecor();
     }
+    this.sinceBuilding += dy;
+    if (this.sinceBuilding > BUILDING_GAP) {
+      this.sinceBuilding -= BUILDING_GAP;
+      this.spawnBuildings(-160 + this.sinceBuilding);
+    }
 
     for (let i = this.things.length - 1; i >= 0; i--) {
       const o = this.things[i];
-      o.y += (this.speed - o.vy) * dt;
-      if (o.y > H + 260 || o.y < -700) {
+      o.ry += (this.speed - o.vy) * dt;
+      if (o.ry > H + 260 || o.ry < -700) {
         o.destroy();
         this.things.splice(i, 1);
         continue;
@@ -407,7 +479,10 @@ export default class GameScene extends Phaser.Scene {
         this.collide(o);
         if (!o.done && KINDS[o.kind].solid) this.checkProximity(o);
       }
+      this.place(o);
     }
+    this.place(this.player);
+    this.road.draw();
 
     this.updateHud(progress);
     if (!this.finished && progress >= 1) this.finish();

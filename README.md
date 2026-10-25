@@ -62,11 +62,19 @@ Everything lives in `public/memes.json`; edit and push, no code changes needed.
 
 **Testing in dev** (`npm run dev` only): keys `1`–`9` spawn rickshaw, CNG, bus, car, police, cow, hawker, puddle or passenger in your lane; `Shift` + number spawns in the next lane.
 
+## Road bends
+
+Each stretch in `src/config.js` has a `bends` list of `[share of the stretch, road position at its end]`. Positions are in `BEND_SHIFT` (200 px) units: `-1` is left, `1` is right. The road eases between them with a smooth S, so repeating the same position makes a straight. Shares in a stretch must add up to 1.
+
+Gameplay lives in straight-road coordinates (`rx`, `ry` on every object) and `place()` in `GameScene.js` bends them onto the screen, so lanes, collisions and close calls work the same on curves. In dev, press `C` to show the road's centre line; the console warns if a bend is too sharp to keep lanes on screen.
+
 ## Where things live
 
 | Path | What |
 |---|---|
-| `src/config.js` | Design resolution, speeds, route stretches, obstacle types |
+| `src/config.js` | Design resolution, speeds, route stretches with their bends, obstacle types |
+| `src/track.js` | Turns each stretch's `bends` into the road's sideways offset along the route |
+| `src/road.js` | Draws the bending road every frame (asphalt, kerbs, lane dashes, pavements) |
 | `src/scenes/GameScene.js` | The race: spawning, steering, collisions, meme popups, HUD |
 | `src/art/textures.js` | Placeholder rickshaw-art sprites drawn in code; replace with real images later |
 | `src/audio/sfx.js` | Synthesised sound effects and the dhol loop |

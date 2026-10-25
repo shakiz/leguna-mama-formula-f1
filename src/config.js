@@ -51,6 +51,11 @@ export const KINDS = {
   passenger: { tex: 'passenger', vy: 0, effect: 'fare' },
 };
 
+// Bends: each stretch lists [share of the stretch, road position at its end]. The position is in
+// BEND_SHIFT units sideways (-1 = left, 1 = right); the road eases there with a smooth S, and a run of
+// equal positions is a straight. Only differences matter, since the view keeps the player's row centred.
+export const BEND_SHIFT = 200; // px
+
 // Farmgate → Mohammadpur Bus Stand. `at` is the fraction of the route where the stretch begins.
 export const STRETCHES = [
   {
@@ -58,6 +63,8 @@ export const STRETCHES = [
     name: { bn: 'ফার্মগেট', en: 'Farmgate' },
     spawn: { rickshaw: 3, cng: 2, bus: 1, passenger: 3, hawker: 2 },
     gap: [520, 820],
+    // Busy wiggles, then Khamarbari's long left sweep onto Manik Mia Avenue
+    bends: [[0.3, 0], [0.25, 0.3], [0.2, 0], [0.25, -0.8]],
   },
   {
     id: 'manikmia', at: 0.18,
@@ -65,24 +72,29 @@ export const STRETCHES = [
     spawn: { car: 4, bus: 1, police: 1, passenger: 1 },
     gap: [600, 900],
     speedBonus: 1.25,
+    bends: [[1, -0.8]], // dead straight, wide avenue
   },
   {
     id: 'asadgate', at: 0.4,
     name: { bn: 'আসাদ গেট', en: 'Asad Gate' },
     spawn: { bus: 3, rickshaw: 3, cng: 2, passenger: 1 },
     gap: [420, 680],
+    // Straight run-up to the junction, then the right sweep onto Asad Avenue
+    bends: [[0.5, -0.8], [0.3, 0.4], [0.2, 0.4]],
   },
   {
     id: 'asadave', at: 0.62,
     name: { bn: 'আসাদ এভিনিউ', en: 'Asad Avenue' },
     spawn: { puddle: 3, cow: 2, rickshaw: 2, cng: 1, passenger: 2 },
     gap: [480, 760],
+    bends: [[0.25, 1.1], [0.25, 0.2], [0.25, 1], [0.25, 0.6]], // S-bends
   },
   {
     id: 'mohammadpur', at: 0.84,
     name: { bn: 'মোহাম্মদপুর বাসস্ট্যান্ড', en: 'Mohammadpur Bus Stand' },
     spawn: { passenger: 3, bus: 2, rickshaw: 2, cng: 1, hawker: 1 },
     gap: [460, 720],
+    bends: [[0.35, 0.3], [0.65, 0.3]], // eases straight into the bus stand
   },
 ];
 
