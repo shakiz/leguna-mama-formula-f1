@@ -15,6 +15,12 @@ const LAWN = 0x7cb342;
 const LOT = 0x55555f;
 const WATER = 0x3d7fb8;
 const FAR = 600; // how far past the screen edge cross roads and lawns are drawn, so bends never show their end
+const BLEED = 60; // ground drawn past the screen edges, so the leaning camera never shows a bare corner
+// Speed streaks: sideways positions on the pavements and just inside the kerbs (mirrored on the right),
+// spacing along the route, and how much faster than the road they rush past
+const STREAK_X = [16, 46, 80, ROAD_X + 10];
+const STREAK_GAP = 110;
+const STREAK_RUSH = 0.6;
 
 export default class RoadRenderer {
   // view: { distance, yOf(d) → screen y, offAt(y) → sideways shift of that row }
@@ -28,6 +34,7 @@ export default class RoadRenderer {
     this.poly = [];
     this.ys = [];
     this.showCentre = false;
+    this.streaks = 0; // 0–1, set by the scene from the leguna's speed
   }
 
   point(i, x, y) {
@@ -91,12 +98,33 @@ export default class RoadRenderer {
     for (let x = ROAD_X + 12; x < ROAD_X + ROAD_W - 20; x += 48) this.quad(x, x + 28, d - half, d + half);
   }
 
+  // Faint motion lines along the pavements and road edges. They sit at fixed spots in a space that
+  // slides STREAK_RUSH faster than the road, so they whip past, and grow longer and brighter with amount.
+  drawStreaks(amount) {
+    const { view } = this;
+    const phase = view.distance * STREAK_RUSH;
+    const len = 50 + 150 * amount;
+    const lo = view.distAt(H + ROW) + phase - len;
+    const hi = view.distAt(-ROW) + phase;
+    const n = STREAK_X.length;
+    this.g.fillStyle(C.white, 0.3 * amount);
+    for (let s = Math.floor(lo / STREAK_GAP) * STREAK_GAP; s <= hi; s += STREAK_GAP) {
+      // Cheap hash of the slot picks a lane for each streak, so they don't line up
+      const k = Math.floor(s / STREAK_GAP);
+      const left = STREAK_X[(((k * 7) % n) + n) % n];
+      const right = W - STREAK_X[(((k * 5 + 2) % n) + n) % n];
+      const d = s - phase;
+      this.quad(left - 1.5, left + 1.5, d, d + len);
+      this.quad(right - 1.5, right + 1.5, d + STREAK_GAP / 2, d + STREAK_GAP / 2 + len);
+    }
+  }
+
   draw() {
     const { g, view, rows } = this;
     g.clear();
     for (const r of rows) r.off = view.offAt(r.y);
 
-    g.fillStyle(GROUND).fillRect(0, 0, W, H);
+    g.fillStyle(GROUND).fillRect(-BLEED, -BLEED, W + 2 * BLEED, H + 2 * BLEED);
     this.band(0, ROAD_X, SIDEWALK);
     this.band(ROAD_X + ROAD_W, W, SIDEWALK);
     // Manik Mia Avenue: planted median on the left, open lawns beyond it
@@ -170,6 +198,7 @@ export default class RoadRenderer {
       }
     }
 
+    if (this.streaks > 0) this.drawStreaks(this.streaks);
     if (this.showCentre) this.band(W / 2 - 2, W / 2 + 2, C.magenta);
   }
 }
