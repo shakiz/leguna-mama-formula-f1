@@ -224,6 +224,142 @@
     "spawn_pedestrian": {
       "sfx": "bell",
       "chance": 0.3
+    },
+    "spawn_brtc": {
+      "sfx": "airhorn",
+      "chance": 0.5,
+      "cooldown": 4000
+    },
+    "close_brtc": {
+      "sfx": [
+        "bonus",
+        "airhorn",
+        "rumble"
+      ],
+      "cooldown": 1500
+    },
+    "closeturn_brtc": {
+      "sfx": [
+        "bonus",
+        "whoosh",
+        "rumble"
+      ],
+      "cooldown": 1500,
+      "chain": [
+        {
+          "event": "brtc_honk",
+          "delay": 250
+        }
+      ]
+    },
+    "crash_brtc": {
+      "sfx": "bigcrash",
+      "vibrate": [
+        120,
+        60,
+        220
+      ],
+      "chain": [
+        {
+          "event": "brtc_honk",
+          "delay": 600
+        }
+      ]
+    },
+    "brtc_honk": {
+      "sfx": "airhorn",
+      "cooldown": 1500
+    },
+    "spawn_bike": {
+      "sfx": "rev",
+      "chance": 0.35,
+      "cooldown": 2500
+    },
+    "spawn_tesla": {
+      "sfx": "ewhine",
+      "chance": 0.4,
+      "cooldown": 2500
+    },
+    "close_bike": {
+      "sfx": [
+        "bonus",
+        "rev"
+      ],
+      "cooldown": 600
+    },
+    "close_tesla": {
+      "sfx": [
+        "bonus",
+        "ewhine"
+      ],
+      "cooldown": 600
+    },
+    "closeturn_bike": {
+      "sfx": [
+        "bonus",
+        "whoosh",
+        "rev"
+      ],
+      "cooldown": 250
+    },
+    "closeturn_tesla": {
+      "sfx": [
+        "bonus",
+        "whoosh",
+        "ewhine"
+      ],
+      "cooldown": 250
+    },
+    "crash_bike": {
+      "sfx": [
+        "crash",
+        "rev"
+      ],
+      "vibrate": [
+        90,
+        50,
+        160
+      ]
+    },
+    "crash_tesla": {
+      "sfx": "crash",
+      "vibrate": [
+        90,
+        50,
+        160
+      ],
+      "chain": [
+        {
+          "event": "rickshaw_dhur",
+          "delay": 250
+        }
+      ]
+    },
+    "crash_rickshaw": {
+      "sfx": "crash",
+      "vibrate": [
+        90,
+        50,
+        160
+      ],
+      "chain": [
+        {
+          "event": "rickshaw_dhur",
+          "delay": 250
+        }
+      ]
+    },
+    "rickshaw_dhur": {
+      "audio": [
+        "audio/clips/dhur-beta.mp3"
+      ],
+      "cooldown": 3000
+    },
+    "pass_tesla": {
+      "audio": [
+        "audio/clips/assalamualaikum-boro-bhai.mp3"
+      ],
+      "cooldown": 10000
     }
   },
   "triggers": {
@@ -482,6 +618,134 @@
       {
         "bn": "নৌকা ভাড়া লাগবে! 🚣",
         "en": "This'll cost boat fare! 🚣"
+      }
+    ],
+    "close_brtc": [
+      {
+        "bn": "ডাবল ডেকার! মাথা নিচু করেন!",
+        "en": "Double-decker! Duck!"
+      },
+      {
+        "bn": "বিআরটিসির সাথে পাঙ্গা?",
+        "en": "Picking a fight with BRTC?"
+      },
+      {
+        "bn": "এইটা বাস না, চলন্ত বিল্ডিং! 🏢",
+        "en": "That's not a bus, it's a building on wheels! 🏢"
+      },
+      {
+        "bn": "দোতলা থেকে সবাই হাত নাড়তেসে 👋",
+        "en": "The whole upper deck is waving at us 👋"
+      },
+      {
+        "bn": "দরজায় আরো দশজন ঝুলে আছে, সাবধান!",
+        "en": "Ten more hanging off the door, careful!"
+      }
+    ],
+    "closeturn_brtc": [
+      {
+        "bn": "আরেকটু হলে দোতলায় উঠে যাইতাম! 😱",
+        "en": "One more inch and we'd be on the upper deck! 😱"
+      },
+      {
+        "bn": "লাল দৈত্য থেকে বাঁচলাম! 🔴",
+        "en": "Dodged the red giant! 🔴"
+      },
+      {
+        "bn": "বাসের পেছনে না মামা, পাশে চলেন!",
+        "en": "Not behind the bus, Mama. Beside it!"
+      }
+    ],
+    "crash_brtc": [
+      {
+        "bn": "লেগুনা vs ডাবল ডেকার: রেজাল্ট সবাই জানে 💀",
+        "en": "Leguna vs double-decker: we all knew how this ends 💀"
+      },
+      {
+        "bn": "বাসের গায়ে আরেকটা টোল, কেউ টেরও পাবে না",
+        "en": "One more dent on that bus. Nobody will even notice"
+      },
+      {
+        "bn": "দোতলা থেকে সবাই ভিডিও করতেসে 📱",
+        "en": "The whole upper deck is filming this 📱"
+      }
+    ],
+    "close_bike": [
+      {
+        "bn": "বাইক তো কানের পাশ দিয়ে গেল! 🏍️",
+        "en": "That bike went right past my ear! 🏍️"
+      },
+      {
+        "bn": "হেলমেট কই ভাই?",
+        "en": "Where's your helmet, bhai?"
+      },
+      {
+        "bn": "পেছনের ভাই তো ঘুমায় গেসে! 😴",
+        "en": "The guy on the back has fallen asleep! 😴"
+      }
+    ],
+    "closeturn_bike": [
+      {
+        "bn": "বাইকার মামা উড়ে গেল! 🏍️",
+        "en": "The biker just flew past! 🏍️"
+      },
+      {
+        "bn": "হেলমেট কই ভাই?",
+        "en": "Where's your helmet, bhai?"
+      },
+      {
+        "bn": "ফুটপাত না পাইয়া রাস্তায় নামসে!",
+        "en": "Couldn't find a footpath, so he's on the road!"
+      }
+    ],
+    "close_tesla": [
+      {
+        "bn": "টেসলা মামা অটোপাইলটে! 🔋",
+        "en": "The Tesla's on autopilot! 🔋"
+      },
+      {
+        "bn": "চার্জ শেষ হইলে ঠেলা লাগবে!",
+        "en": "When the charge runs out, we'll have to push!"
+      }
+    ],
+    "closeturn_tesla": [
+      {
+        "bn": "টেসলা মামা অটোপাইলটে! 🔋",
+        "en": "The Tesla's on autopilot! 🔋"
+      },
+      {
+        "bn": "ইন্ডিকেটর ছাড়াই টার্ন!",
+        "en": "Turning without an indicator!"
+      },
+      {
+        "bn": "ইলন মাস্কও এই মডেল চিনে না 🔋",
+        "en": "Even Elon doesn't know this model 🔋"
+      }
+    ],
+    "crash_bike": [
+      {
+        "bn": "হেলমেট ছিল একজনের, ভাগ্য ভালো 🪖",
+        "en": "One helmet between the two of them. Lucky 🪖"
+      },
+      {
+        "bn": "বাইকার ভাই রাগ করসে, এখন ভিডিও করবে 📱",
+        "en": "The biker's angry. Now he's filming 📱"
+      }
+    ],
+    "crash_tesla": [
+      {
+        "bn": "টেসলার সাথে এক্সিডেন্ট! ইন্সুরেন্স কে দিবে? 🔋",
+        "en": "Crashed into a Tesla! Who pays the insurance? 🔋"
+      },
+      {
+        "bn": "অটোপাইলট ফেল! 🤖",
+        "en": "Autopilot failure! 🤖"
+      }
+    ],
+    "pass_tesla": [
+      {
+        "bn": "আসসালামু আলাইকুম বড় ভাই! 👋",
+        "en": "Assalamu alaikum, boro bhai! 👋"
       }
     ]
   }

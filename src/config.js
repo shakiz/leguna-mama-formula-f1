@@ -49,6 +49,13 @@ export const KINDS = {
   hawker: { tex: 'hawker', vy: 40, solid: true },
   puddle: { tex: 'puddle', vy: 0, effect: 'slow' },
   passenger: { tex: 'passenger', vy: 0, effect: 'fare' },
+  // BRTC double-decker: the slowest, longest thing with an engine, so overtaking it is a commitment
+  brtc: { tex: 'brtc', vy: 300, solid: true },
+  // Lane changers (see weave() in GameScene). `weave`: seconds between attempts, how long the move
+  // takes, its easing and lean. The bike slips across smoothly; the "Tesla" lurches over without warning.
+  // `pass`: overtaking one fires pass_<kind>.
+  bike: { tex: 'bike', vy: 450, solid: true, weave: { every: [1, 2.2], dur: 320, ease: 'Sine.easeInOut', tilt: 9 } },
+  tesla: { tex: 'tesla', vy: 200, solid: true, pass: true, weave: { every: [0.6, 1.4], dur: 200, ease: 'Back.easeOut', tilt: 16 } },
   // Road hazards. `warn` is the helper's shout when one is coming up in your lane.
   pothole: { tex: 'pothole', vy: 0, effect: 'jolt', warn: 'helper_pothole', depth: 2 },
   manhole: { tex: 'manhole', vy: 0, solid: true, warn: 'helper_manhole', depth: 2 },
@@ -70,7 +77,7 @@ export const STRETCHES = [
   {
     id: 'farmgate', at: 0,
     name: { bn: 'ফার্মগেট', en: 'Farmgate' },
-    spawn: { rickshaw: 3, cng: 2, bus: 1, passenger: 3, hawker: 2, pothole: 1 },
+    spawn: { rickshaw: 3, cng: 2, bus: 1, passenger: 3, hawker: 2, pothole: 1, bike: 1, tesla: 0.5 },
     gap: [520, 820],
     ambience: { hum: 0.9, horns: 0.6, bells: 0.4, chatter: 0.3 },
     // Busy wiggles, then Khamarbari's long left sweep onto Manik Mia Avenue
@@ -86,7 +93,7 @@ export const STRETCHES = [
   {
     id: 'manikmia', at: 0.18,
     name: { bn: 'মানিক মিয়া এভিনিউ', en: 'Manik Mia Avenue' },
-    spawn: { car: 4, bus: 1, police: 1, passenger: 1 },
+    spawn: { car: 4, bus: 1, brtc: 1, police: 1, passenger: 1, bike: 1 },
     gap: [600, 900],
     speedBonus: 1.25,
     ambience: { hum: 0.3, wind: 0.8, birds: 0.3, horns: 0.1 },
@@ -97,7 +104,7 @@ export const STRETCHES = [
   {
     id: 'asadgate', at: 0.4,
     name: { bn: 'আসাদ গেট', en: 'Asad Gate' },
-    spawn: { bus: 3, rickshaw: 3, cng: 2, passenger: 1, manhole: 1 },
+    spawn: { bus: 3, brtc: 1, rickshaw: 3, cng: 2, passenger: 1, manhole: 1, bike: 1 },
     gap: [420, 680],
     ambience: { hum: 1, horns: 0.8, bells: 0.3, chatter: 0.2 },
     // Straight run-up to the junction, then the right sweep onto Asad Avenue
@@ -107,7 +114,7 @@ export const STRETCHES = [
   {
     id: 'asadave', at: 0.62,
     name: { bn: 'আসাদ এভিনিউ', en: 'Asad Avenue' },
-    spawn: { puddle: 3, cow: 2, rickshaw: 2, cng: 1, passenger: 2, pothole: 2, manhole: 1 },
+    spawn: { puddle: 3, cow: 2, rickshaw: 2, cng: 1, passenger: 2, pothole: 2, manhole: 1, bike: 1, tesla: 2 },
     gap: [480, 760],
     ambience: { hum: 0.4, rain: 0.8, drips: 0.8, bells: 0.2 },
     bends: [[0.25, 1.1], [0.25, 0.2], [0.25, 1], [0.25, 0.6]], // S-bends
@@ -116,7 +123,7 @@ export const STRETCHES = [
   {
     id: 'mohammadpur', at: 0.84,
     name: { bn: 'মোহাম্মদপুর বাসস্ট্যান্ড', en: 'Mohammadpur Bus Stand' },
-    spawn: { passenger: 3, bus: 2, rickshaw: 2, cng: 1, hawker: 1, pothole: 1 },
+    spawn: { passenger: 3, bus: 2, rickshaw: 2, cng: 1, hawker: 1, pothole: 1, bike: 1, tesla: 2 },
     gap: [460, 720],
     ambience: { hum: 0.6, chatter: 0.9, horns: 0.5, bells: 0.3 },
     bends: [[0.35, 0.3], [0.65, 0.3]], // eases straight into the bus stand
