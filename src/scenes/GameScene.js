@@ -16,6 +16,11 @@ import RoadRenderer from '../road.js';
 import { ROOFS } from '../art/textures.js';
 
 const MEME_COOLDOWN = 1800; // ms between non-forced meme popups
+// `speedup` event: fired on getting back to CRUISING x the target speed after dropping under
+// SLOWED x cruising (or leaving the flood), and SPEEDUP_DELAY ms into a speed-bonus stretch
+const SLOWED = 0.4;
+const CRUISING = 0.9;
+const SPEEDUP_DELAY = 1500;
 const BAR_X = 40;
 const BAR_W = W - 80;
 // Distance from spawn (y = -120) to the player, so the finish banner arrives as the route ends
@@ -92,6 +97,8 @@ export default class GameScene extends Phaser.Scene {
     this.stretchIdx = -1;
     this.finished = false;
     this.finishBanner = false;
+    this.cruised = false; // reached cruising speed once: the start's pull-away isn't a "speed-up"
+    this.slowedDown = false;
     this.lastMemeAt = -Infinity;
 
     this.player = this.add.image(0, 0, 'leguna').setDepth(20);
@@ -261,6 +268,8 @@ export default class GameScene extends Phaser.Scene {
     setAmbience(st.ambience);
     this.spawnBanner(pick(st.name), i === 0 ? COLORS.green : COLORS.teal);
     if (i > 0) this.fireEvent(`stretch_${st.id}`, { forceMeme: true });
+    // Open road with a speed bonus: "খেলা হবে!" once the stretch's own sting and popup have had their moment
+    if (i > 0 && st.speedBonus > 1) this.time.delayedCall(SPEEDUP_DELAY, () => this.speedUp());
   }
 
   spawnBanner(label, color) {
@@ -592,6 +601,13 @@ export default class GameScene extends Phaser.Scene {
     for (const next of ev.chain ?? []) this.time.delayedCall(next.delay ?? 0, () => this.fireEvent(next.event));
   }
 
+  speedUp() {
+    if (this.finished) return;
+    // Check the cooldown here: fireEvent would still force the popup while the voice is on cooldown
+    if (this.time.now - (this.eventAt.speedup ?? -Infinity) < (getEvent('speedup').cooldown ?? 0)) return;
+    this.fireEvent('speedup', { forceMeme: true });
+  }
+
   meme(trigger, force = false) {
     const now = this.time.now;
     if (!force && now - this.lastMemeAt < MEME_COOLDOWN) return;
@@ -683,6 +699,14 @@ export default class GameScene extends Phaser.Scene {
     this.speed = this.speed < target
       ? Math.min(target, this.speed + ACCEL * dt)
       : Math.max(target, this.speed - (this.braking ? BRAKE_DECEL : ACCEL * 2) * dt);
+    // Back up to speed after a real slowdown (crash, brake, red light, a crawl through the flood)
+    if (this.flooded || this.speed < BASE_SPEED * (st.speedBonus ?? 1) * SLOWED) {
+      if (this.cruised) this.slowedDown = true;
+    } else if (target > 0 && this.slow === 0 && this.speed >= target * CRUISING) {
+      if (this.slowedDown) this.speedUp();
+      this.slowedDown = false;
+      this.cruised = true;
+    }
     const brakeTex = this.braking && !this.finished ? 'legunaBrake' : 'leguna';
     if (this.player.texture.key !== brakeTex) this.player.setTexture(brakeTex);
 

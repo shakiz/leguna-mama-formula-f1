@@ -119,10 +119,35 @@
       "sfx": "slap"
     },
     "finish": {
-      "sfx": "sting"
+      "sfx": "sting",
+      "chain": [
+        {
+          "event": "finish_voice",
+          "delay": 250
+        }
+      ]
     },
     "newbest": {
-      "sfx": "sting"
+      "sfx": "sting",
+      "chain": [
+        {
+          "event": "finish_voice",
+          "delay": 250
+        }
+      ]
+    },
+    "finish_voice": {
+      "audio": [
+        "audio/clips/aj-chole-jacchi.mp3"
+      ],
+      "cooldown": 5000
+    },
+    "speedup": {
+      "audio": [
+        "audio/clips/khela-hobe.mp3"
+      ],
+      "sfx": "whoosh",
+      "cooldown": 25000
     },
     "speedbreaker": {
       "sfx": "thud",
@@ -577,6 +602,12 @@
       {
         "bn": "দোতলা থেকে সবাই ভিডিও করতেসে 📱",
         "en": "The whole upper deck is filming this 📱"
+      }
+    ],
+    "speedup": [
+      {
+        "bn": "খেলা হবে! 🔥",
+        "en": "Khela hobe! Game on! 🔥"
       }
     ]
   }
