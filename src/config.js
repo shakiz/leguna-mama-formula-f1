@@ -49,6 +49,8 @@ export const KINDS = {
   hawker: { tex: 'hawker', vy: 40, solid: true },
   puddle: { tex: 'puddle', vy: 0, effect: 'slow' },
   passenger: { tex: 'passenger', vy: 0, effect: 'fare' },
+  // BRTC double-decker: the slowest, longest thing with an engine, so overtaking it is a commitment
+  brtc: { tex: 'brtc', vy: 300, solid: true },
   // Road hazards. `warn` is the helper's shout when one is coming up in your lane.
   pothole: { tex: 'pothole', vy: 0, effect: 'jolt', warn: 'helper_pothole', depth: 2 },
   manhole: { tex: 'manhole', vy: 0, solid: true, warn: 'helper_manhole', depth: 2 },
@@ -86,7 +88,7 @@ export const STRETCHES = [
   {
     id: 'manikmia', at: 0.18,
     name: { bn: 'মানিক মিয়া এভিনিউ', en: 'Manik Mia Avenue' },
-    spawn: { car: 4, bus: 1, police: 1, passenger: 1 },
+    spawn: { car: 4, bus: 1, brtc: 1, police: 1, passenger: 1 },
     gap: [600, 900],
     speedBonus: 1.25,
     ambience: { hum: 0.3, wind: 0.8, birds: 0.3, horns: 0.1 },
@@ -97,7 +99,7 @@ export const STRETCHES = [
   {
     id: 'asadgate', at: 0.4,
     name: { bn: 'আসাদ গেট', en: 'Asad Gate' },
-    spawn: { bus: 3, rickshaw: 3, cng: 2, passenger: 1, manhole: 1 },
+    spawn: { bus: 3, brtc: 1, rickshaw: 3, cng: 2, passenger: 1, manhole: 1 },
     gap: [420, 680],
     ambience: { hum: 1, horns: 0.8, bells: 0.3, chatter: 0.2 },
     // Straight run-up to the junction, then the right sweep onto Asad Avenue

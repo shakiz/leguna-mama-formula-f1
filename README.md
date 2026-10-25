@@ -1,6 +1,6 @@
 # লেগুনা মামা — Formula F1
 
-A free, just-for-fun web game: drive a leguna from **Farmgate to Mohammadpur Bus Stand**, dodge rickshaws, buses, cows and waterlogging, pick up passengers, and share your time. Works the same on phones and desktop (fixed 9:16 layout, scaled to fit).
+A free, just-for-fun web game: drive a leguna from **Farmgate to Mohammadpur Bus Stand**, dodge rickshaws, buses, BRTC double-deckers, cows and waterlogging, pick up passengers, and share your time. Works the same on phones and desktop (fixed 9:16 layout, scaled to fit).
 
 Built with [Phaser 3.90](https://phaser.io) and Vite. All art and sounds are placeholders generated in code, so the whole game is ~330 KB gzipped.
 
@@ -49,12 +49,14 @@ Everything lives in `public/memes.json`; edit and push, no code changes needed.
 
 **Event names** follow `<event>_<vehicle>`. If a specific entry is missing, the general one is used: `close_cng` falls back to `close`, and `crash_bus` to `crash`.
 
+The BRTC double-decker (`brtc`, Manik Mia Avenue and Asad Gate only) has the full set: `spawn_brtc` sounds its deep `airhorn` now and then, `close_brtc` / `closeturn_brtc` add the horn and a diesel `rumble`, and `crash_brtc` is a heavier `bigcrash`; the closeturn and crash chain to `brtc_honk` (the air horn again).
+
 | Event | When |
 |---|---|
 | `start`, `finish`, `newbest`, `stretch_<id>` | Run start, finish, new record, entering a route stretch |
 | `pickup`, `puddle` | Passenger picked up, drove through water |
-| `crash_<vehicle>` | Collision. `crash_car` (bumper) chains to `bump_honk` |
-| `close_<vehicle>` | Passed within `CLOSE_MARGIN` px without touching: +৳2 bonus |
+| `crash_<vehicle>` | Collision. `crash_car` (bumper) chains to `bump_honk`, `crash_brtc` to `brtc_honk` |
+| `close_<vehicle>` | Passed within `CLOSE_MARGIN` px without touching: +৳2 bonus. Just driving in the lane next to a wide bus or BRTC doesn't count |
 | `closeturn_<vehicle>` | Swerved out of a lane just before impact: +৳2 bonus |
 | `helper_left`, `helper_right`, `helper_ahead` | Helper's warning on every close call ("বামে / ডানে / সামনে প্লাস্টিক!") |
 | `spawn_<vehicle>` | Vehicle appears (ambient horn, bell, moo) |
@@ -69,7 +71,7 @@ ambience: { hum: 0.4, rain: 0.8, drips: 0.8, bells: 0.2 }, // Asad Avenue
 
 **Recording clips:** mono MP3 at 48–64 kbps, 1–3 seconds, ideally under 40 KB. Put them in `public/audio/` (for example `public/audio/helper/bame-plastic.mp3`) and list them in the event's `audio`. Re-record lines yourself rather than ripping original clips.
 
-**Testing in dev** (`npm run dev` only): keys `1`–`9` spawn rickshaw, CNG, bus, car, police, cow, hawker, puddle or passenger in your lane; `Shift` + number spawns in the next lane.
+**Testing in dev** (`npm run dev` only): keys `1`–`9` spawn rickshaw, CNG, bus, car, police, cow, hawker, puddle or passenger in your lane, and `0` a BRTC double-decker; `Shift` + number spawns in the next lane.
 
 ## Road bends
 
@@ -98,6 +100,8 @@ Each stretch can list `features` in `src/config.js`, placed by share of the stre
 | `busstand` (zone) | Parked buses and a bus lot on the right |
 
 Potholes and open manholes come from the random spawn mix (`spawn` weights per stretch); the helper warns you when one is coming up in your lane.
+
+**Fair spawns:** `spawn()` never fills the last free lane near the top of the screen, and it also predicts when each solid will pass the leguna at the stretch's cruising speed, so slow, long vehicles (the 384 px BRTC) can't drift into a three-lane wall further down.
 
 ## Where things live
 

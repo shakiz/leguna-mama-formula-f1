@@ -23,6 +23,8 @@ const FINISH_BANNER_LEAD = PLAYER_Y + 120;
 const BUILDING_GAP = 205; // rooftops are 220 tall, so neighbours overlap a little like a real street
 const OVERHEAD_PARALLAX = 1.07; // overhead things slide a touch faster than the road, so they read as higher up
 const SPAWN_AHEAD = PLAYER_Y + 320; // route distance ahead of the player at which set pieces are created
+const SPAWN_Y = -200; // row where random traffic appears, just above the screen
+const FAIR_MARGIN = 60; // px of extra room the spawn check keeps free around each solid, for a lane change
 // Signal lamp offsets from the signal head's centre, per state
 const LAMP = { red: [20, -16, 0xff3b30], yellow: [20, 3, 0xffcc00], green: [20, 22, 0x2ecc40] };
 // The view leans this share of the road's heading into bends, up to MAX_LEAN, easing in at LEAN_RATE
@@ -139,10 +141,11 @@ export default class GameScene extends Phaser.Scene {
       kb.on(`keyup-${key}`, () => (this.braking = false));
     }
 
-    // Dev-only test keys: 1-9 spawn each vehicle kind in your lane, Shift+1-9 in the next lane over
+    // Dev-only test keys: 1-9 and 0 spawn the first ten kinds in your lane, Shift+number in the next lane over
     if (import.meta.env.DEV) {
       kb.on('keydown', (e) => {
-        const kind = Object.keys(KINDS)[Number(e.code.replace('Digit', '')) - 1];
+        const n = e.code.startsWith('Digit') ? Number(e.code.slice(5)) || 10 : 0;
+        const kind = Object.keys(KINDS)[n - 1];
         if (!kind) return;
         const lane = e.shiftKey ? (this.lane === LANES - 1 ? this.lane - 1 : this.lane + 1) : this.lane;
         this.spawn(kind, lane);
@@ -208,9 +211,13 @@ export default class GameScene extends Phaser.Scene {
   checkProximity(o) {
     const p = this.player;
     const dx = o.rx - p.rx;
-    const gapX = Math.abs(dx) - ((o.colW ?? o.displayWidth) + p.displayWidth) / 2;
+    const widths = ((o.colW ?? o.displayWidth) + p.displayWidth) / 2;
+    const gapX = Math.abs(dx) - widths;
     const gapY = Math.abs(o.ry - PLAYER_Y) - ((o.colH ?? o.displayHeight) + p.displayHeight) / 2;
-    const inZone = gapX < CLOSE_MARGIN && gapY < CLOSE_MARGIN;
+    // Wide vehicles (buses, the BRTC) leave less than CLOSE_MARGIN to a neighbouring lane's centre, so
+    // for lane traffic the side margin stops short of that: just driving in the next lane never counts
+    const marginX = o.lane >= 0 ? Math.min(CLOSE_MARGIN, LANE_W - widths - 1) : CLOSE_MARGIN;
+    const inZone = gapX < marginX && gapY < CLOSE_MARGIN;
     if (inZone && !o.close) {
       o.close = 'close';
       const side = Math.abs(dx) < 40 ? 'ahead' : dx < 0 ? 'left' : 'right';
@@ -280,26 +287,51 @@ export default class GameScene extends Phaser.Scene {
     const st = STRETCHES[this.stretchIdx];
     const kind = forceKind ?? weightedPick(st.spawn);
     const def = KINDS[kind];
+    const vy = def.vy * Phaser.Math.FloatBetween(0.85, 1.15);
+    // Never approach faster than whatever is already ahead in the lane, so sprites don't overlap
+    const laneVy = (l) => this.things.reduce((v, o) => (o.kind && o.lane === l ? Math.max(v, o.vy) : v), vy);
     let lane = forceLane;
     if (lane === undefined) {
       const nearTop = this.things.filter((o) => o.kind && o.ry < 220);
-      const free = [0, 1, 2].filter((l) => !nearTop.some((o) => o.lane === l));
+      let free = [0, 1, 2].filter((l) => !nearTop.some((o) => o.lane === l));
       if (!free.length) return;
       // Always leave at least one lane without a solid obstacle
       if (def.solid) {
         const blocked = new Set(nearTop.filter((o) => KINDS[o.kind].solid).map((o) => o.lane));
         if (blocked.size >= LANES - 1) return;
+        // ...and not just up here: vehicles close in at different speeds, so a slow, long one (the BRTC)
+        // can still end up side by side with two others by the time they reach the player
+        const h = this.textures.getFrame(def.tex).height;
+        free = free.filter((l) => !this.closesRoad(l, h, laneVy(l)));
+        if (!free.length) return;
       }
       lane = Phaser.Utils.Array.GetRandom(free);
     }
-    const img = this.makeThing(kind, laneX(lane), -200, lane);
-    // Never approach faster than whatever is already ahead in the lane, so sprites don't overlap
-    for (const o of this.things) {
-      if (o.kind && o.lane === lane) img.vy = Math.max(img.vy, o.vy);
-    }
+    const img = this.makeThing(kind, laneX(lane), SPAWN_Y, lane);
+    img.vy = laneVy(lane);
     if (kind === 'passenger') this.tweens.add({ targets: img, tilt: 10, duration: 260, yoyo: true, repeat: -1 });
     if (kind === 'cow') img.tilt = Phaser.Math.Between(-20, 20);
     this.fireEvent(`spawn_${kind}`, { meme: false });
+  }
+
+  // When (in s from now) something at row ry, h tall, moving at vy, blocks its lane at the player's row,
+  // assuming the leguna holds the stretch's cruising speed. Null if it never gets there.
+  blockWindow(ry, h, vy) {
+    const closing = BASE_SPEED * (STRETCHES[this.stretchIdx].speedBonus ?? 1) - vy;
+    if (closing <= 0) return null;
+    const reach = (h + this.player.displayHeight) / 2 + FAIR_MARGIN;
+    return [(PLAYER_Y - reach - ry) / closing, (PLAYER_Y + reach - ry) / closing];
+  }
+
+  // Would a new solid in `lane` be in the player's row at a moment when both other lanes are too?
+  closesRoad(lane, h, vy) {
+    const win = this.blockWindow(SPAWN_Y, h, vy);
+    if (!win) return false;
+    const [a, b] = [0, 1, 2].filter((l) => l !== lane).map((l) => this.things
+      .filter((o) => o.kind && !o.done && !o.vx && o.lane === l && KINDS[o.kind].solid)
+      .map((o) => this.blockWindow(o.ry, o.displayHeight, o.vy))
+      .filter(Boolean));
+    return a.some((wa) => b.some((wb) => Math.max(win[0], wa[0], wb[0]) < Math.min(win[1], wa[1], wb[1])));
   }
 
   makeThing(kind, rx, ry, lane, tex) {

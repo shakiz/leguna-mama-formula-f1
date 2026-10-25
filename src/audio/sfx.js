@@ -80,6 +80,25 @@ function tone(type, f0, f1, dur, vol = 0.3, when = 0, out = master) {
   o.stop(t + dur + 0.05);
 }
 
+// A held note (unlike tone(), which decays): quick attack, sustain, short release, softened by a lowpass
+function blare(freq, dur, vol, when = 0) {
+  const t = ctx.currentTime + when;
+  const o = ctx.createOscillator();
+  o.type = 'sawtooth';
+  o.frequency.value = freq;
+  const f = ctx.createBiquadFilter();
+  f.type = 'lowpass';
+  f.frequency.value = 1100;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.04);
+  g.gain.setValueAtTime(vol, t + dur - 0.1);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(f).connect(g).connect(master);
+  o.start(t);
+  o.stop(t + dur + 0.05);
+}
+
 // One second of white noise, shared by every noise sound and looped for the continuous beds
 function noiseBuffer() {
   if (!noiseBuf) {
@@ -189,6 +208,26 @@ const SFX = {
   ding: () => {
     tone('sine', 1175, 1175, 0.35, 0.18);
     tone('sine', 1760, 1760, 0.25, 0.06);
+  },
+  // BRTC double-decker's diesel air horn: two long, low blasts, the second a step lower ("bhoooo-bhaaa")
+  airhorn: () => {
+    for (const [w, k, dur] of [[0, 1, 0.55], [0.62, 0.84, 0.75]]) {
+      blare(155 * k, dur, 0.16, w);
+      blare(196 * k, dur, 0.12, w);
+      tone('sine', 78 * k, 78 * k, dur, 0.25, w);
+    }
+  },
+  // Big diesel engine rolling past: a deep growl that swells and fades
+  rumble: () => {
+    noise(0.9, 0.6, 'lowpass', 260, 70);
+    tone('sawtooth', 52, 44, 0.9, 0.12);
+  },
+  // Leguna into a double-decker: a longer, deeper crash with a sheet-metal clang
+  bigcrash: () => {
+    noise(0.9, 0.8, 'lowpass', 2800, 80);
+    tone('sine', 95, 30, 0.8, 0.75);
+    tone('triangle', 620, 430, 0.5, 0.14, 0.05);
+    tone('triangle', 910, 650, 0.35, 0.08, 0.08);
   },
   bonus: () => {
     tone('square', 1319, 1319, 0.06, 0.08);

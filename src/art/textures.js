@@ -98,6 +98,48 @@ const DRAW = {
     stripeDots(g, 12, 314, 112, C.yellow);
   },
 
+  // BRTC double-decker seen from above: red roof, the upper deck's window strips along both sides,
+  // a cream band with blocky "BRTC" lettering (no text in Graphics), roof hatches and many dents
+  brtc(g) {
+    g.fillStyle(0x000000, 0.25).fillRoundedRect(8, 10, 140, 372, 20);
+    g.fillStyle(0xc8261b).fillRoundedRect(0, 0, 140, 372, 18);
+    g.fillStyle(C.red).fillRoundedRect(16, 6, 108, 360, 12);
+    // upper-deck front windows and the destination board above the driver
+    g.fillStyle(C.ink).fillRoundedRect(10, 8, 120, 28, 9);
+    g.fillStyle(0x7fa8d6, 0.5).fillRoundedRect(18, 12, 40, 7, 3);
+    g.fillStyle(0xffb000).fillRect(40, 38, 60, 6);
+    // window strips with pillars, seen over the roof edge
+    g.fillStyle(0x23466e).fillRect(4, 52, 10, 290).fillRect(126, 52, 10, 290);
+    g.fillStyle(0xc8261b);
+    for (let y = 84; y < 340; y += 36) g.fillRect(4, y, 10, 5).fillRect(126, y, 10, 5);
+    // cream band down both sides of the roof, like the livery stripe under the windows
+    g.fillStyle(C.cream).fillRect(16, 48, 5, 300).fillRect(119, 48, 5, 300);
+    // "BRTC" panel: four blocky letter shapes on cream
+    g.fillStyle(C.cream).fillRoundedRect(30, 160, 80, 34, 6);
+    g.fillStyle(0xc8261b);
+    g.fillRect(36, 166, 5, 22).fillRect(41, 166, 7, 5).fillRect(41, 175, 7, 4).fillRect(41, 183, 7, 5).fillRect(47, 169, 4, 7).fillRect(47, 178, 4, 7); // B
+    g.fillRect(54, 166, 5, 22).fillRect(59, 166, 9, 5).fillRect(64, 171, 4, 6).fillRect(59, 175, 6, 4).fillRect(63, 179, 5, 9); // R
+    g.fillRect(72, 166, 16, 5).fillRect(78, 171, 5, 17); // T
+    g.fillRect(91, 166, 13, 5).fillRect(91, 171, 5, 12).fillRect(91, 183, 13, 5); // C
+    // roof hatches and a row of vents
+    for (const y of [76, 262]) {
+      g.fillStyle(0x8f8f96).fillRoundedRect(42, y, 56, 40, 5);
+      g.lineStyle(3, 0x5c5c64).strokeRoundedRect(42, y, 56, 40, 5);
+      g.lineStyle(2, 0x6e6e76).lineBetween(48, y + 13, 92, y + 13).lineBetween(48, y + 27, 92, y + 27);
+    }
+    g.fillStyle(0x9a9a9a);
+    for (const y of [136, 218, 236, 322]) g.fillCircle(52, y, 5).fillCircle(88, y, 5);
+    // rear engine grille
+    g.fillStyle(0x2b2b2b).fillRoundedRect(22, 346, 96, 16, 4);
+    g.lineStyle(2, 0x555555);
+    for (let x = 30; x < 114; x += 10) g.lineBetween(x, 349, x, 359);
+    // dents and scratches: decades of Dhaka traffic
+    g.lineStyle(3, 0x7a1d14);
+    g.lineBetween(26, 112, 52, 126).lineBetween(100, 214, 116, 236).lineBetween(28, 300, 40, 330).lineBetween(70, 40, 96, 46);
+    g.fillStyle(0x7a1d14).fillCircle(112, 140, 6).fillCircle(30, 240, 7).fillCircle(106, 318, 5);
+    stripeDots(g, 14, 367, 112, C.yellow);
+  },
+
   car(g) {
     g.fillStyle(0x000000, 0.25).fillRoundedRect(8, 8, 100, 172, 24);
     g.fillStyle(0xe8e8ee).fillRoundedRect(2, 0, 100, 172, 24);
@@ -275,7 +317,7 @@ DRAW.ped0 = (g) => person(g, C.blue, C.ink);
 DRAW.ped1 = (g) => person(g, C.magenta, 0x3a2a1a);
 
 const SIZES = {
-  leguna: [136, 198], rickshaw: [96, 160], cng: [104, 164], bus: [146, 332], car: [110, 182],
+  leguna: [136, 198], rickshaw: [96, 160], cng: [104, 164], bus: [146, 332], brtc: [150, 384], car: [110, 182],
   police: [116, 116], cow: [92, 170], hawker: [90, 90], puddle: [170, 110], passenger: [84, 96],
   tree: [100, 100], stall: [104, 124], legunaBrake: [136, 198],
   speedbreaker: [480, 30], pothole: [96, 72], manhole: [84, 84], patch: [140, 90], crack: [120, 120], oil: [90, 60],
