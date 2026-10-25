@@ -81,7 +81,10 @@ EVENTS = {
     'rickshaw_dhur': (CRASH, 'A quarter of a second after the leguna crashes into a rickshaw or a "Tesla": the driver '
                       'swears at the leguna.',
                       'Fed-up rickshaw-wala: a long, disgusted "dhur", then the jab. Annoyed, not angry.'),
-    'stretch_manikmia': (SETPIECE, 'Entering Manik Mia Avenue: wide, empty and fast.', 'Excited, egging the driver on.'),
+    'stretch_manikmia': (SETPIECE, 'Entering Manik Mia Avenue: wide, empty and fast, the Parliament on the right.',
+                         'Excited, egging the driver on.'),
+    'stretch_townhall': (SETPIECE, 'Entering Mohammadpur Town Hall Market: stalls, fish and crowds on both sides.',
+                         'Market bustle: amused, shouting over the haggling.'),
     'stretch_asadgate': (SETPIECE, 'Entering Asad Gate: the jam and the signal.', 'Fed up, exasperated.'),
     'stretch_asadave': (SETPIECE, 'Entering Asad Avenue: waterlogged in the rain.', 'Resigned, half laughing at the water.'),
     'stretch_mohammadpur': (SETPIECE, 'Entering Mohammadpur: the last stretch to the bus stand.',

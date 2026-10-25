@@ -10,7 +10,7 @@ Almost every sound in the game is a computer-made placeholder. This is the list 
 |---|---|---|---|
 | Helper callouts (record these first) | 9 | 0 | 9 |
 | Event voice clips | 5 | 5 | 0 |
-| Meme voice lines | 91 | 0 | 91 |
+| Meme voice lines | 99 | 0 | 99 |
 | Sound effects | 25 | 0 | 25 |
 | Clips already in the game | 6 | 6 | 0 |
 
@@ -351,12 +351,26 @@ Meme popups that appear during the run, roughly in the order you meet them: star
 
 ### `stretch_manikmia`
 
-**When it plays:** Entering Manik Mia Avenue: wide, empty and fast.  
+**When it plays:** Entering Manik Mia Avenue: wide, empty and fast, the Parliament on the right.  
 **Delivery:** Excited, egging the driver on.
 
 | Bangla | Meaning | Status | File |
 |---|---|---|---|
 | ফাঁকা রাস্তা! টান দেন মামা! 🏎️ | Empty road! Floor it, Mama! 🏎️ | To record | `voice/stretch-manikmia-empty-road-floor.mp3` |
+| ডানে সংসদ ভবন, সামনে ফাঁকা রাস্তা! 🏛️ | Parliament on the right, open road ahead! 🏛️ | To record | `voice/stretch-manikmia-parliament-right-open-road-ahead.mp3` |
+| সংসদ ভবনের ডিজাইন আর মামার ড্রাইভিং — দুইটাই মাস্টারপিস 😎 | The Parliament's design and Mama's driving — both masterpieces 😎 | To record | `voice/stretch-manikmia-parliaments-design-mamas-driving-both.mp3` |
+| লেকের পানিতে সংসদ ভবন, রাস্তায় লেগুনা — সুন্দর ঢাকা! 🌇 | Parliament in the lake, leguna on the road — beautiful Dhaka! 🌇 | To record | `voice/stretch-manikmia-parliament-lake-leguna-road-beautiful.mp3` |
+
+### `stretch_townhall`
+
+**When it plays:** Entering Mohammadpur Town Hall Market: stalls, fish and crowds on both sides.  
+**Delivery:** Market bustle: amused, shouting over the haggling.
+
+| Bangla | Meaning | Status | File |
+|---|---|---|---|
+| টাউন হল মার্কেট! মাছ কিনবেন না প্যাসেঞ্জার তুলবেন? 🐟 | Town Hall Market! Buying fish or picking up passengers? 🐟 | To record | `voice/stretch-townhall-town-hall-market-buying-fish.mp3` |
+| ইলিশের দাম শুনে লেগুনাও থেমে গেল 😱 | Even the leguna stalled when it heard the hilsa price 😱 | To record | `voice/stretch-townhall-even-leguna-stalled-when-heard.mp3` |
+| সবজি, মাছ, মানুষ — রাস্তা কই মামা? 🥬 | Veg, fish, people — where's the road, Mama? 🥬 | To record | `voice/stretch-townhall-veg-fish-people-wheres-road.mp3` |
 
 ### `stretch_asadgate`
 
@@ -367,6 +381,7 @@ Meme popups that appear during the run, roughly in the order you meet them: star
 |---|---|---|---|
 | Enough! En-Aff 😤 | Enough! En-Aff 😤 | To record | `voice/stretch-asadgate-enough-en-aff.mp3` |
 | সিগন্যাল তো ছাড়ে না! | The signal never turns green! | To record | `voice/stretch-asadgate-signal-never-turns-green.mp3` |
+| আসাদ গেট এসে গেছে, এইবার ডানে মামা! ➡️ | Asad Gate's here — now go right, Mama! ➡️ | To record | `voice/stretch-asadgate-asad-gates-here-now-go.mp3` |
 
 ### `stretch_asadave`
 
@@ -385,6 +400,7 @@ Meme popups that appear during the run, roughly in the order you meet them: star
 | Bangla | Meaning | Status | File |
 |---|---|---|---|
 | নামেন নামেন, বাসস্ট্যান্ড! | Off you get — bus stand! | To record | `voice/stretch-mohammadpur-off-you-get-bus-stand.mp3` |
+| মোহাম্মদপুর! শেষ স্টপ, সবাই নামেন 🚏 | Mohammadpur! Last stop, everybody off 🚏 | To record | `voice/stretch-mohammadpur-mohammadpur-last-stop-everybody-off.mp3` |
 
 ### `zone_flood`
 
@@ -481,7 +497,7 @@ Real-world sounds to replace the synthesised placeholders. Record them on the st
 | `airhorn` | BRTC double-decker diesel air horn: deep, very loud, two blasts. | `brtc_honk`, `close_brtc`, `spawn_brtc` | To record | `sfx/airhorn.mp3` |
 | `angryhonk` | Angry private-car horn: one long blast then three short ones. | `bump_honk` | To record | `sfx/angryhonk.mp3` |
 | `beep` | Two short car horn beeps. | `close_car` | To record | `sfx/beep.mp3` |
-| `bell` | Rickshaw bell: the quick "kring-kring" thumb bell. | `spawn_pedestrian`, `spawn_rickshaw` | To record | `sfx/bell.mp3` |
+| `bell` | Rickshaw bell: the quick "kring-kring" thumb bell. | `spawn_pedestrian`, `spawn_rickshaw`, `stretch_townhall` | To record | `sfx/bell.mp3` |
 | `bigcrash` | Leguna into a double-decker: long, deep crash with a sheet-metal clang. | `crash_brtc`, `crash_vip` | To record | `sfx/bigcrash.mp3` |
 | `boing` | Comedy "boing" (spring or a mouth sound). | `crash` meme line, `crash_pedestrian` | To record | `sfx/boing.mp3` |
 | `bonus` | Short bright "bonus" chime, e.g. coins shaken in a hand. Can stay synthetic. | `close`, `close_bike`, `close_brtc`, `close_car`, `close_tesla`, `close_vip`, `closeturn`, `closeturn_bike`, `closeturn_brtc`, `closeturn_tesla`, `closeturn_vip` | To record | `sfx/bonus.mp3` |
@@ -492,7 +508,7 @@ Real-world sounds to replace the synthesised placeholders. Record them on the st
 | `ding` | Signal change "ding" (a small bell or a glass tapped). Can stay synthetic. | `signal_green`, `signal_red`, `signal_yellow` | To record | `sfx/ding.mp3` |
 | `ewhine` | Battery rickshaw ("Tesla"): its thin electric motor whine rising, then a tinny squeeze horn. | `close_tesla`, `closeturn_tesla`, `spawn_tesla` | To record | `sfx/ewhine.mp3` |
 | `helper` | The helper's voice placeholder. Replaced by the helper callouts above, nothing extra to record. | `helper_ahead`, `helper_behind`, `helper_left`, `helper_manhole`, `helper_pothole`, `helper_right` | Covered by callouts | (none) |
-| `horn` | Two-tone Dhaka bus horn: "pyaa-pou pyaa-pou". | `spawn_bus`, `stretch_asadgate` | To record | `sfx/horn.mp3` |
+| `horn` | Two-tone Dhaka bus horn: "pyaa-pou pyaa-pou". | `spawn_bus`, `stretch_asadgate`, `stretch_townhall` | To record | `sfx/horn.mp3` |
 | `moo` | A cow mooing ("hamba"). | `crash_cow`, `spawn_cow` | To record | `sfx/moo.mp3` |
 | `rev` | Motorbike: a throttle blip ("brrRAAP") and two quick pips on its tiny horn. | `close_bike`, `closeturn_bike`, `crash_bike`, `spawn_bike` | To record | `sfx/rev.mp3` |
 | `rumble` | Diesel bus engine rumble passing close by. | `close_brtc`, `closeturn_brtc` | To record | `sfx/rumble.mp3` |
