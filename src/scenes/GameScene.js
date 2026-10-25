@@ -1009,8 +1009,7 @@ export default class GameScene extends Phaser.Scene {
 
   speedUp() {
     if (this.finished) return;
-    // Check the cooldown here: fireEvent would still force the popup while the voice is on cooldown
-    if (this.time.now - (this.eventAt.speedup ?? -Infinity) < (getEvent('speedup').cooldown ?? 0)) return;
+    // While `speedup` is on cooldown fireEvent skips its popup as well as the clip, even when forced
     this.fireEvent('speedup', { forceMeme: true });
   }
 
