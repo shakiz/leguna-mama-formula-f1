@@ -8,10 +8,11 @@ Almost every sound in the game is a computer-made placeholder. This is the list 
 
 | What | Total | Recorded | Left |
 |---|---|---|---|
-| Helper callouts (record these first) | 7 | 0 | 7 |
-| Meme voice lines | 62 | 0 | 62 |
-| Sound effects | 22 | 0 | 22 |
-| Clips already in the game | 1 | 1 | 0 |
+| Helper callouts (record these first) | 9 | 0 | 9 |
+| Event voice clips | 5 | 5 | 0 |
+| Meme voice lines | 91 | 0 | 91 |
+| Sound effects | 25 | 0 | 25 |
+| Clips already in the game | 6 | 6 | 0 |
 
 ## How to record
 
@@ -43,10 +44,24 @@ The helper hangs off the back of the leguna and shouts these every time somethin
 | `helper_left` | The helper hanging off the back warns about traffic on your left. | বামে প্লাস্টিক! | Plastic on the left! | Shouted warning over traffic noise, flat and practised, like he says it a hundred times a day. | To record | `voice/callout-left.mp3` |
 | `helper_right` | The helper hanging off the back warns about traffic on your right. | ডানে প্লাস্টিক! | Plastic on the right! | Shouted warning over traffic noise, flat and practised, like he says it a hundred times a day. | To record | `voice/callout-right.mp3` |
 | `helper_ahead` | The helper hanging off the back warns about traffic straight ahead. | সামনে প্লাস্টিক! | Plastic up front! | Shouted warning over traffic noise, flat and practised, like he says it a hundred times a day. | To record | `voice/callout-ahead.mp3` |
+| `helper_behind` | The helper warns that the VIP car is right behind the leguna (a close call from behind). | পেছনে প্লাস্টিক! | Plastic behind! | Shouted warning, more urgent than the others: it is coming up fast from behind. | To record | `voice/callout-behind.mp3` |
 | `helper_manhole` | The helper hanging off the back warns about an open manhole coming up in your lane. | ম্যানহোল! সাইড চাপেন! | Manhole! Move over! | Shouted warning over traffic noise, urgent: the driver has a second to react. | To record | `voice/callout-manhole.mp3` |
 | `helper_pothole` | The helper hanging off the back warns about a pothole coming up in your lane. | সামনে গর্ত! | Pothole ahead! | Shouted warning over traffic noise, urgent: the driver has a second to react. | To record | `voice/callout-pothole.mp3` |
+| `vip_spotted` | A VIP car is coming up from behind: the flashing warning appears at the bottom of the screen in its lane, about 2 s before it reaches the leguna. The siren starts with it. | পেছনে সাইরেন! সাইড দেন! | Siren behind! Give way! | The helper shouting over the siren: urgent, telling the driver to pull aside now. | To record | `voice/callout-vip-spotted.mp3` |
 | `signal_yellow` | The junction signal turns yellow as you approach. | বাতি হলুদ মামা! | Light's turning, Mama! | Urgent shouted warning. | To record | `voice/callout-signal-yellow.mp3` |
-| `signal_red` | The signal turns red: time to brake. | নিচে সোয়াইপ = ব্রেক ⬇️ | Swipe down = brake ⬇️ | Urgent, telling the driver to stop now. | To record | `voice/callout-signal-red.mp3` |
+| `signal_red` | The signal turns red: the helper shouts to stop (the first time in a run, the brake control is also shown on screen). | লাল বাতি! থামেন মামা! | Red light! Stop, Mama! | Urgent shout, telling the driver to stop right now. | To record | `voice/callout-signal-red.mp3` |
+
+## Event voice clips (recorded)
+
+Recorded lines that play on a game event, together with its sound effect, helper callout and popup. They are done; re-record one only to improve it, keeping the same file name.
+
+| Event | When it plays | Bangla | Meaning | Delivery | Status | File |
+|---|---|---|---|---|---|---|
+| `pass_tesla` | The leguna overtakes a battery rickshaw ("Tesla"), in any lane, without touching it (at most once every 10 s). | আসসালামু আলাইকুম বড় ভাই | Assalamu alaikum, big brother | Over-polite greeting to the Tesla driver as you sail past, like greeting an elder brother: warm, a bit smug. | Done | `audio/clips/assalamualaikum-boro-bhai.mp3` |
+| `speedup` | The leguna is back up to speed after a real slowdown (a crash, braking, the red light or the flood), and 1.5 s into Manik Mia Avenue's open road. At most once every 25 s. | খেলা হবে! | Game on! | Rally cry: pumped up and loud, like a crowd at a big match. | Done | `audio/clips/khela-hobe.mp3` |
+| `vip_spotted` | A VIP car is coming up from behind: the flashing warning appears at the bottom of the screen in its lane, about 2 s before it reaches the leguna. The siren starts with it. | আরে এরা কারা? | Hey, who are these people? | Startled and suspicious, turning round to look: who on earth are these people? | Done | `audio/clips/are-era-kara.mp3` |
+| `rickshaw_dhur` | A quarter of a second after the leguna crashes into a rickshaw or a "Tesla": the driver swears at the leguna. | ধুর বেটা, এইটা হইল বেটা? | Ugh, mate, what was that, mate? | Fed-up rickshaw-wala: a long, disgusted "dhur", then the jab. Annoyed, not angry. | Done | `audio/clips/dhur-beta.mp3` |
+| `finish_voice` | A quarter of a second after the finish (or new record) fanfare at Mohammadpur Bus Stand. | আজ চলে যাচ্ছি, কিন্তু যাচ্ছি না | I'm leaving today, but I'm not really leaving | Wistful, dramatic farewell, half joking, like a hero leaving the stage. | Done | `audio/clips/aj-chole-jacchi.mp3` |
 
 ## Voice lines
 
@@ -96,6 +111,17 @@ Meme popups that appear during the run, roughly in the order you meet them: star
 | ঝুঁকি বোনাস! 😮‍💨 | Risk bonus! 😮‍💨 | To record | `voice/close-risk-bonus.mp3` |
 | একদম ঘেঁষে! +২ টাকা | Close shave! +2 taka | To record | `voice/close-close-shave-2-taka.mp3` |
 
+### `close_bike`
+
+**When it plays:** A near miss with a motorbike (+2 taka bonus).  
+**Delivery:** Breathless and a bit cheeky, like a passenger who just watched the motorbike slide past.
+
+| Bangla | Meaning | Status | File |
+|---|---|---|---|
+| বাইক তো কানের পাশ দিয়ে গেল! 🏍️ | That bike went right past my ear! 🏍️ | To record | `voice/close-bike-bike-went-right-past-my.mp3` |
+| হেলমেট কই ভাই? | Where's your helmet, bhai? | To record | `voice/close-bike-wheres-your-helmet-bhai.mp3` |
+| পেছনের ভাই তো ঘুমায় গেসে! 😴 | The guy on the back has fallen asleep! 😴 | To record | `voice/close-bike-guy-back-has-fallen-asleep.mp3` |
+
 ### `close_brtc`
 
 **When it plays:** A near miss with a BRTC double-decker (+2 taka bonus).  
@@ -120,6 +146,28 @@ Meme popups that appear during the run, roughly in the order you meet them: star
 | গাড়ি ঘেঁষে যাইয়েন না! | Don't squeeze past the car! | To record | `voice/close-car-dont-squeeze-past-car.mp3` |
 | লুকিং গ্লাস বাঁচসে! 🪞 | The side mirror survived! 🪞 | To record | `voice/close-car-side-mirror-survived.mp3` |
 
+### `close_tesla`
+
+**When it plays:** A near miss with a battery rickshaw ("Tesla") (+2 taka bonus).  
+**Delivery:** Breathless and a bit cheeky, like a passenger who just watched the battery rickshaw ("Tesla") slide past.
+
+| Bangla | Meaning | Status | File |
+|---|---|---|---|
+| টেসলা মামা অটোপাইলটে! 🔋 | The Tesla's on autopilot! 🔋 | To record | `voice/close-tesla-teslas-autopilot.mp3` |
+| চার্জ শেষ হইলে ঠেলা লাগবে! | When the charge runs out, we'll have to push! | To record | `voice/close-tesla-when-charge-runs-out-well.mp3` |
+
+### `close_vip`
+
+**When it plays:** A near miss with a VIP car (+2 taka bonus).  
+**Delivery:** Breathless and a bit cheeky, like a passenger who just watched the VIP car slide past.
+
+| Bangla | Meaning | Status | File |
+|---|---|---|---|
+| ভিআইপি যায়, সাইড দেন! | VIP coming, give way! | To record | `voice/close-vip-vip-coming-give-way.mp3` |
+| প্রটোকল মামা, প্রটোকল! | Protocol, Mama, protocol! | To record | `voice/close-vip-protocol-protocol.mp3` |
+| কালো কাঁচের ভেতরে কে, কেউ জানে না 🕶️ | Who's behind the black glass? Nobody knows 🕶️ | To record | `voice/close-vip-whos-behind-black-glass-nobody.mp3` |
+| রাস্তা ওনাদের, জ্যাম আমাদের | The road is theirs, the jam is ours | To record | `voice/close-vip-road-theirs-jam-ours.mp3` |
+
 ### `closeturn`
 
 **When it plays:** A last-second swerve out of the way (+2 taka bonus).  
@@ -131,6 +179,17 @@ Meme popups that appear during the run, roughly in the order you meet them: star
 | চুল পরিমাণ বাঁচা! 😮‍💨 | Missed by a hair! 😮‍💨 | To record | `voice/closeturn-missed-by-hair.mp3` |
 | ইঞ্চি মেপে ড্রাইভিং 📏 | Driving by the inch 📏 | To record | `voice/closeturn-driving-by-inch.mp3` |
 
+### `closeturn_bike`
+
+**When it plays:** A last-second swerve away from a motorbike (+2 taka bonus).  
+**Delivery:** Panicked passenger, then relief. Short gasp first.
+
+| Bangla | Meaning | Status | File |
+|---|---|---|---|
+| বাইকার মামা উড়ে গেল! 🏍️ | The biker just flew past! 🏍️ | To record | `voice/closeturn-bike-biker-just-flew-past.mp3` |
+| হেলমেট কই ভাই? | Where's your helmet, bhai? | To record | `voice/closeturn-bike-wheres-your-helmet-bhai.mp3` |
+| ফুটপাত না পাইয়া রাস্তায় নামসে! | Couldn't find a footpath, so he's on the road! | To record | `voice/closeturn-bike-couldnt-find-footpath-hes-road.mp3` |
+
 ### `closeturn_brtc`
 
 **When it plays:** A last-second swerve away from a BRTC double-decker (+2 taka bonus).  
@@ -141,6 +200,58 @@ Meme popups that appear during the run, roughly in the order you meet them: star
 | আরেকটু হলে দোতলায় উঠে যাইতাম! 😱 | One more inch and we'd be on the upper deck! 😱 | To record | `voice/closeturn-brtc-one-more-inch-wed-be.mp3` |
 | লাল দৈত্য থেকে বাঁচলাম! 🔴 | Dodged the red giant! 🔴 | To record | `voice/closeturn-brtc-dodged-red-giant.mp3` |
 | বাসের পেছনে না মামা, পাশে চলেন! | Not behind the bus, Mama. Beside it! | To record | `voice/closeturn-brtc-not-behind-bus-beside.mp3` |
+
+### `closeturn_tesla`
+
+**When it plays:** A last-second swerve away from a battery rickshaw ("Tesla") (+2 taka bonus).  
+**Delivery:** Panicked passenger, then relief. Short gasp first.
+
+| Bangla | Meaning | Status | File |
+|---|---|---|---|
+| টেসলা মামা অটোপাইলটে! 🔋 | The Tesla's on autopilot! 🔋 | To record | `voice/closeturn-tesla-teslas-autopilot.mp3` |
+| ইন্ডিকেটর ছাড়াই টার্ন! | Turning without an indicator! | To record | `voice/closeturn-tesla-turning-without-indicator.mp3` |
+| ইলন মাস্কও এই মডেল চিনে না 🔋 | Even Elon doesn't know this model 🔋 | To record | `voice/closeturn-tesla-even-elon-doesnt-know-model.mp3` |
+
+### `closeturn_vip`
+
+**When it plays:** A last-second swerve away from a VIP car (+2 taka bonus).  
+**Delivery:** Panicked passenger, then relief. Short gasp first.
+
+| Bangla | Meaning | Status | File |
+|---|---|---|---|
+| ভিআইপি যায়, সাইড দেন! | VIP coming, give way! | To record | `voice/closeturn-vip-vip-coming-give-way.mp3` |
+| প্রটোকল মামা, প্রটোকল! | Protocol, Mama, protocol! | To record | `voice/closeturn-vip-protocol-protocol.mp3` |
+| আরেকটু হলে আমরাও প্রটোকলে ঢুকে যাইতাম 😅 | One more inch and we'd have joined the motorcade 😅 | To record | `voice/closeturn-vip-one-more-inch-wed-have.mp3` |
+| সাইরেন শুনলেই সাইড, এইটাই ঢাকার নিয়ম! | Hear a siren, move aside: the first rule of Dhaka! | To record | `voice/closeturn-vip-hear-siren-move-aside-first.mp3` |
+
+### `pass_tesla`
+
+**When it plays:** The leguna overtakes a battery rickshaw ("Tesla"), in any lane, without touching it (at most once every 10 s).  
+**Delivery:** Over-polite greeting to the Tesla driver as you sail past, like greeting an elder brother: warm, a bit smug.
+
+| Bangla | Meaning | Status | File |
+|---|---|---|---|
+| আসসালামু আলাইকুম বড় ভাই! 👋 | Assalamu alaikum, boro bhai! 👋 | Text only (event has its own clip) | - |
+
+### `speedup`
+
+**When it plays:** The leguna is back up to speed after a real slowdown (a crash, braking, the red light or the flood), and 1.5 s into Manik Mia Avenue's open road. At most once every 25 s.  
+**Delivery:** Rally cry: pumped up and loud, like a crowd at a big match.
+
+| Bangla | Meaning | Status | File |
+|---|---|---|---|
+| খেলা হবে! 🔥 | Khela hobe! Game on! 🔥 | Text only (event has its own clip) | - |
+
+### `vip_gaveway`
+
+**When it plays:** You were in the VIP's lane when the warning came and moved out of its way in time (+5 taka).  
+**Delivery:** Mock-deferential and sarcastic: "after you, sir", bowing and scraping.
+
+| Bangla | Meaning | Status | File |
+|---|---|---|---|
+| ভদ্র ড্রাইভার, সাইড দিসে 👍 | A polite driver: gave way 👍 | To record | `voice/vip-gaveway-polite-driver-gave-way.mp3` |
+| যান স্যার, যান! আমরা তো পরেই যাই | Go ahead, sir! We always go after | To record | `voice/vip-gaveway-go-ahead-sir-we-always.mp3` |
+| প্রটোকল পাস! এবার টান দেন মামা | Protocol cleared! Now floor it, Mama | To record | `voice/vip-gaveway-protocol-cleared-now-floor.mp3` |
 
 ### `crash`
 
@@ -154,6 +265,16 @@ Meme popups that appear during the run, roughly in the order you meet them: star
 | Final match. You perform. 💥 | Final match. You perform. 💥 | To record | `voice/crash-final-match-you-perform.mp3` |
 | লাইসেন্স কই মামা? 🪪 | Where's your licence, Mama? 🪪 | To record | `voice/crash-wheres-your-licence.mp3` |
 | বাম্পার শেষ, ইজ্জতও শেষ | Bumper's gone. So is my dignity. | To record | `voice/crash-bumpers-gone-my-dignity.mp3` |
+
+### `crash_bike`
+
+**When it plays:** The leguna crashes into a motorbike.  
+**Delivery:** Dramatic and over the top: shock, then a sarcastic jab at the driver.
+
+| Bangla | Meaning | Status | File |
+|---|---|---|---|
+| হেলমেট ছিল একজনের, ভাগ্য ভালো 🪖 | One helmet between the two of them. Lucky 🪖 | To record | `voice/crash-bike-one-helmet-between-two-them.mp3` |
+| বাইকার ভাই রাগ করসে, এখন ভিডিও করবে 📱 | The biker's angry. Now he's filming 📱 | To record | `voice/crash-bike-bikers-angry-now-hes-filming.mp3` |
 
 ### `crash_brtc`
 
@@ -206,6 +327,27 @@ Meme popups that appear during the run, roughly in the order you meet them: star
 |---|---|---|---|
 | ওই মিয়া! চোখ নাই? 😠 | Hey! Got no eyes? 😠 | To record | `voice/crash-pedestrian-hey-got-no-eyes.mp3` |
 | জেব্রা ক্রসিং চিনেন না? | Ever heard of a zebra crossing? | To record | `voice/crash-pedestrian-ever-heard-zebra-crossing.mp3` |
+
+### `crash_tesla`
+
+**When it plays:** The leguna crashes into a battery rickshaw ("Tesla").  
+**Delivery:** Dramatic and over the top: shock, then a sarcastic jab at the driver.
+
+| Bangla | Meaning | Status | File |
+|---|---|---|---|
+| টেসলার সাথে এক্সিডেন্ট! ইন্সুরেন্স কে দিবে? 🔋 | Crashed into a Tesla! Who pays the insurance? 🔋 | To record | `voice/crash-tesla-crashed-into-tesla-who-pays.mp3` |
+| অটোপাইলট ফেল! 🤖 | Autopilot failure! 🤖 | To record | `voice/crash-tesla-autopilot-failure.mp3` |
+
+### `crash_vip`
+
+**When it plays:** The leguna crashes into a VIP car.  
+**Delivery:** Dramatic and over the top: shock, then a sarcastic jab at the driver.
+
+| Bangla | Meaning | Status | File |
+|---|---|---|---|
+| আপনি জানেন উনি কে? | Do you know who that is? | To record | `voice/crash-vip-do-you-know-who.mp3` |
+| ভিআইপির গাড়িতে ধাক্কা! আজকে থানায় চা খাইতে হবে ☕ | Bumped the VIP! Tea at the police station tonight ☕ | To record | `voice/crash-vip-bumped-vip-tea-police-station.mp3` |
+| লেগুনার কাগজপত্র সব ঠিক আছে তো মামা? 📄 | Mama, are the leguna's papers all in order? 📄 | To record | `voice/crash-vip-legunas-papers-all-order.mp3` |
 
 ### `stretch_manikmia`
 
@@ -275,8 +417,8 @@ Meme popups that appear during the run, roughly in the order you meet them: star
 
 ### `signal_red`
 
-**When it plays:** The signal turns red: time to brake.  
-**Delivery:** Urgent, telling the driver to stop now.
+**When it plays:** The signal turns red: the helper shouts to stop (the first time in a run, the brake control is also shown on screen).  
+**Delivery:** Urgent shout, telling the driver to stop right now.
 
 | Bangla | Meaning | Status | File |
 |---|---|---|---|
@@ -340,28 +482,36 @@ Real-world sounds to replace the synthesised placeholders. Record them on the st
 | `angryhonk` | Angry private-car horn: one long blast then three short ones. | `bump_honk` | To record | `sfx/angryhonk.mp3` |
 | `beep` | Two short car horn beeps. | `close_car` | To record | `sfx/beep.mp3` |
 | `bell` | Rickshaw bell: the quick "kring-kring" thumb bell. | `spawn_pedestrian`, `spawn_rickshaw` | To record | `sfx/bell.mp3` |
-| `bigcrash` | Leguna into a double-decker: long, deep crash with a sheet-metal clang. | `crash_brtc` | To record | `sfx/bigcrash.mp3` |
+| `bigcrash` | Leguna into a double-decker: long, deep crash with a sheet-metal clang. | `crash_brtc`, `crash_vip` | To record | `sfx/bigcrash.mp3` |
 | `boing` | Comedy "boing" (spring or a mouth sound). | `crash` meme line, `crash_pedestrian` | To record | `sfx/boing.mp3` |
-| `bonus` | Short bright "bonus" chime, e.g. coins shaken in a hand. Can stay synthetic. | `close`, `close_brtc`, `close_car`, `closeturn`, `closeturn_brtc` | To record | `sfx/bonus.mp3` |
+| `bonus` | Short bright "bonus" chime, e.g. coins shaken in a hand. Can stay synthetic. | `close`, `close_bike`, `close_brtc`, `close_car`, `close_tesla`, `close_vip`, `closeturn`, `closeturn_bike`, `closeturn_brtc`, `closeturn_tesla`, `closeturn_vip` | To record | `sfx/bonus.mp3` |
 | `clunk` | Wheel dropping into a pothole: heavy metal clunk and rattle. | `crash_manhole`, `pothole` | To record | `sfx/clunk.mp3` |
-| `coin` | Coins dropped into the helper's hand or a tin box. | `pickup`, `stopped_at_red` | To record | `sfx/coin.mp3` |
-| `crash` | Metal-and-plastic crash, not too long. | `crash`, `crash_cow`, `crash_manhole` | To record | `sfx/crash.mp3` |
+| `coin` | Coins dropped into the helper's hand or a tin box. | `pickup`, `stopped_at_red`, `vip_gaveway` | To record | `sfx/coin.mp3` |
+| `crash` | Metal-and-plastic crash, not too long. | `crash`, `crash_bike`, `crash_cow`, `crash_manhole`, `crash_rickshaw`, `crash_tesla` | To record | `sfx/crash.mp3` |
 | `crunch` | Bumper crunch: plastic cracking, a light car-to-car bump. | `crash_car` | To record | `sfx/crunch.mp3` |
 | `ding` | Signal change "ding" (a small bell or a glass tapped). Can stay synthetic. | `signal_green`, `signal_red`, `signal_yellow` | To record | `sfx/ding.mp3` |
-| `helper` | The helper's voice placeholder. Replaced by the helper callouts above, nothing extra to record. | `helper_ahead`, `helper_left`, `helper_manhole`, `helper_pothole`, `helper_right` | Covered by callouts | (none) |
+| `ewhine` | Battery rickshaw ("Tesla"): its thin electric motor whine rising, then a tinny squeeze horn. | `close_tesla`, `closeturn_tesla`, `spawn_tesla` | To record | `sfx/ewhine.mp3` |
+| `helper` | The helper's voice placeholder. Replaced by the helper callouts above, nothing extra to record. | `helper_ahead`, `helper_behind`, `helper_left`, `helper_manhole`, `helper_pothole`, `helper_right` | Covered by callouts | (none) |
 | `horn` | Two-tone Dhaka bus horn: "pyaa-pou pyaa-pou". | `spawn_bus`, `stretch_asadgate` | To record | `sfx/horn.mp3` |
 | `moo` | A cow mooing ("hamba"). | `crash_cow`, `spawn_cow` | To record | `sfx/moo.mp3` |
+| `rev` | Motorbike: a throttle blip ("brrRAAP") and two quick pips on its tiny horn. | `close_bike`, `closeturn_bike`, `crash_bike`, `spawn_bike` | To record | `sfx/rev.mp3` |
 | `rumble` | Diesel bus engine rumble passing close by. | `close_brtc`, `closeturn_brtc` | To record | `sfx/rumble.mp3` |
 | `sad` | Sad "wah-wah-waaah" trombone; hum or whistle it if there is no instrument. | `crash` meme line, `red_light` | To record | `sfx/sad.mp3` |
+| `siren` | VIP motorcade siren: a two-tone wail rising and falling, about 4 s, swelling in and fading out. | `vip_siren` | To record | `sfx/siren.mp3` |
 | `slap` | Two hand slaps on the leguna's metal side (the helper's "go" signal). | `start`, `stretch_mohammadpur` | To record | `sfx/slap.mp3` |
 | `splash` | Tyre splashing through a puddle. | `puddle`, `stretch_asadave`, `zone_flood` | To record | `sfx/splash.mp3` |
 | `sting` | Short victory fanfare (whistle, harmonica or humming is fine). | `finish`, `newbest`, `stretch_manikmia` | To record | `sfx/sting.mp3` |
 | `thud` | Leguna thumping over a speed breaker: two dull thuds, front and back wheels. | `speedbreaker`, `speedbreaker_fast` | To record | `sfx/thud.mp3` |
-| `whistle` | Traffic police whistle: two sharp blasts. | `crash_pedestrian`, `red_light`, `signal_red`, `spawn_police` | To record | `sfx/whistle.mp3` |
-| `whoosh` | Fast whoosh of a vehicle passing very close. | `closeturn`, `closeturn_brtc` | To record | `sfx/whoosh.mp3` |
+| `whistle` | Traffic police whistle: two sharp blasts. | `crash_pedestrian`, `red_light`, `signal_red`, `spawn_police`, `vip_spotted` | To record | `sfx/whistle.mp3` |
+| `whoosh` | Fast whoosh of a vehicle passing very close. | `close_vip`, `closeturn`, `closeturn_bike`, `closeturn_brtc`, `closeturn_tesla`, `closeturn_vip`, `speedup` | To record | `sfx/whoosh.mp3` |
 
 ## Already in the game
 
 | File | Used for |
 |---|---|
+| `public/audio/clips/aj-chole-jacchi.mp3` | event `finish_voice` |
+| `public/audio/clips/are-era-kara.mp3` | event `vip_spotted` |
+| `public/audio/clips/assalamualaikum-boro-bhai.mp3` | event `pass_tesla` |
+| `public/audio/clips/dhur-beta.mp3` | event `rickshaw_dhur` |
+| `public/audio/clips/khela-hobe.mp3` | event `speedup` |
 | `public/audio/engine/leguna-engine.mp3` | engine loop (src/audio/sfx.js) |

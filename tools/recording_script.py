@@ -23,6 +23,7 @@ THINGS = {
     'rickshaw': 'rickshaw', 'cng': 'CNG', 'bus': 'bus', 'car': 'private car', 'police': 'traffic police',
     'cow': 'cow', 'hawker': 'hawker', 'brtc': 'BRTC double-decker', 'pedestrian': 'pedestrian',
     'manhole': 'open manhole', 'pothole': 'pothole', 'manikmia': 'Manik Mia Avenue', 'asadgate': 'Asad Gate',
+    'bike': 'motorbike', 'tesla': 'battery rickshaw ("Tesla")', 'vip': 'VIP car',
     'asadave': 'Asad Avenue', 'mohammadpur': 'Mohammadpur', 'flood': 'waterlogged road',
     'left': 'left', 'right': 'right', 'ahead': 'ahead',
 }
@@ -52,15 +53,34 @@ EVENTS = {
                      'Shouted warning over traffic noise, flat and practised, like he says it a hundred times a day.'),
     'helper_ahead': (DRIVING, 'The helper hanging off the back warns about traffic straight ahead.',
                      'Shouted warning over traffic noise, flat and practised, like he says it a hundred times a day.'),
+    'helper_behind': (DRIVING, 'The helper warns that the VIP car is right behind the leguna (a close call from behind).',
+                      'Shouted warning, more urgent than the others: it is coming up fast from behind.'),
     'helper_*': (DRIVING, 'The helper hanging off the back warns about {ax} coming up in your lane.',
                  'Shouted warning over traffic noise, urgent: the driver has a second to react.'),
     'spawn_*': (DRIVING, '{AX} appears on the road (ambient sound).', 'Ambient street sound, not a voice.'),
+    'pass_tesla': (DRIVING, 'The leguna overtakes a battery rickshaw ("Tesla"), in any lane, without touching it '
+                   '(at most once every 10 s).',
+                   'Over-polite greeting to the Tesla driver as you sail past, like greeting an elder brother: warm, a bit smug.'),
+    'pass_*': (DRIVING, 'The leguna overtakes {ax}.', 'Smug, a little cheeky, as you sail past.'),
+    'speedup': (DRIVING, 'The leguna is back up to speed after a real slowdown (a crash, braking, the red light or the '
+                'flood), and 1.5 s into Manik Mia Avenue\'s open road. At most once every 25 s.',
+                'Rally cry: pumped up and loud, like a crowd at a big match.'),
+    'vip_spotted': (DRIVING, 'A VIP car is coming up from behind: the flashing warning appears at the bottom of the '
+                    'screen in its lane, about 2 s before it reaches the leguna. The siren starts with it.',
+                    'Startled and suspicious, turning round to look: who on earth are these people?'),
+    'vip_siren': (DRIVING, 'Together with the VIP warning: the motorcade\'s siren as it comes up from behind.',
+                  'Not a voice: a sound effect (see the siren below).'),
+    'vip_gaveway': (DRIVING, 'You were in the VIP\'s lane when the warning came and moved out of its way in time (+5 taka).',
+                    'Mock-deferential and sarcastic: "after you, sir", bowing and scraping.'),
     'bump_honk': (DRIVING, 'The car you bumped honks back angrily.', 'Angry, long horn blasts.'),
     'brtc_honk': (DRIVING, 'The BRTC double-decker blasts its air horn.', 'Deep, very loud diesel air horn.'),
     'crash': (CRASH, 'Any crash that has no lines of its own.',
               'Dramatic and over the top: shock, then a sarcastic jab at the driver.'),
     'crash_*': (CRASH, 'The leguna crashes into {ax}.',
                 'Dramatic and over the top: shock, then a sarcastic jab at the driver.'),
+    'rickshaw_dhur': (CRASH, 'A quarter of a second after the leguna crashes into a rickshaw or a "Tesla": the driver '
+                      'swears at the leguna.',
+                      'Fed-up rickshaw-wala: a long, disgusted "dhur", then the jab. Annoyed, not angry.'),
     'stretch_manikmia': (SETPIECE, 'Entering Manik Mia Avenue: wide, empty and fast.', 'Excited, egging the driver on.'),
     'stretch_asadgate': (SETPIECE, 'Entering Asad Gate: the jam and the signal.', 'Fed up, exasperated.'),
     'stretch_asadave': (SETPIECE, 'Entering Asad Avenue: waterlogged in the rain.', 'Resigned, half laughing at the water.'),
@@ -72,13 +92,21 @@ EVENTS = {
     'speedbreaker_fast': (SETPIECE, 'Taking a speed breaker fast and flying.', 'Excited and scared at once, like a fairground ride.'),
     'pothole': (SETPIECE, 'Hitting a pothole.', 'Jolted passenger, sarcastic about the road.'),
     'signal_yellow': (SETPIECE, 'The junction signal turns yellow as you approach.', 'Urgent shouted warning.'),
-    'signal_red': (SETPIECE, 'The signal turns red: time to brake.', 'Urgent, telling the driver to stop now.'),
+    'signal_red': (SETPIECE, 'The signal turns red: the helper shouts to stop (the first time in a run, the brake '
+                   'control is also shown on screen).', 'Urgent shout, telling the driver to stop right now.'),
     'signal_green': (SETPIECE, 'The signal turns green after waiting.', 'Impatient and happy: go go go.'),
     'stopped_at_red': (SETPIECE, 'You waited at the red light.', 'Mock-amazed, sarcastic praise.'),
     'red_light': (SETPIECE, 'You crossed the stop line on red and got fined.', 'Stern traffic police, then a groan.'),
     'finish': (FINISH, 'Reaching Mohammadpur Bus Stand.', 'Proud and triumphant, like a commentator at the finish line.'),
     'newbest': (FINISH, 'A new personal best time.', 'Over-the-top proud, show-off.'),
+    'finish_voice': (FINISH, 'A quarter of a second after the finish (or new record) fanfare at Mohammadpur Bus Stand.',
+                     'Wistful, dramatic farewell, half joking, like a hero leaving the stage.'),
 }
+# Delivery for a helper callout when it differs from the event's (whose note is about its voice clip)
+CALLOUT_TONE = {
+    'vip_spotted': 'The helper shouting over the siren: urgent, telling the driver to pull aside now.',
+}
+
 GENERIC = (OTHER, 'Game event `{name}` (no description yet: add it to EVENTS in tools/recording_script.py).',
            'Natural, energetic street Bangla; match the line.')
 
@@ -108,8 +136,20 @@ SFX = {
     'thud': 'Leguna thumping over a speed breaker: two dull thuds, front and back wheels.',
     'whistle': 'Traffic police whistle: two sharp blasts.',
     'whoosh': 'Fast whoosh of a vehicle passing very close.',
+    'rev': 'Motorbike: a throttle blip ("brrRAAP") and two quick pips on its tiny horn.',
+    'ewhine': 'Battery rickshaw ("Tesla"): its thin electric motor whine rising, then a tinny squeeze horn.',
+    'siren': 'VIP motorcade siren: a two-tone wail rising and falling, about 4 s, swelling in and fading out.',
 }
 SFX_GENERIC = 'No description yet: add it to SFX in tools/recording_script.py. See SFX in src/audio/sfx.js.'
+
+# What each recorded event clip says: (Bangla, meaning). Add a line when a new clip goes into an event's `audio`.
+CLIPS = {
+    'audio/clips/are-era-kara.mp3': ('আরে এরা কারা?', 'Hey, who are these people?'),
+    'audio/clips/assalamualaikum-boro-bhai.mp3': ('আসসালামু আলাইকুম বড় ভাই', 'Assalamu alaikum, big brother'),
+    'audio/clips/dhur-beta.mp3': ('ধুর বেটা, এইটা হইল বেটা?', 'Ugh, mate, what was that, mate?'),
+    'audio/clips/khela-hobe.mp3': ('খেলা হবে!', 'Game on!'),
+    'audio/clips/aj-chole-jacchi.mp3': ('আজ চলে যাচ্ছি, কিন্তু যাচ্ছি না', "I'm leaving today, but I'm not really leaving"),
+}
 
 STOPWORDS = {'a', 'an', 'the', 'is', 'are', 'of', 'to', 'and', 'on', 'in', 'at', 'it', 'mama', 'that', 'this', 'so'}
 
@@ -197,9 +237,23 @@ def build(memes, public):
         e = events[ev]
         cap = e['caption']
         base = 'callout-' + (kebab(ev[len('helper_'):] if ev.startswith('helper_') else ev, 8, ()) or 'line')
-        st, f = status(as_list(e.get('audio')), names.get('voice', base), public)
+        # An event clip elsewhere (audio/clips/) is a different line that plays with the callout, not the callout
+        own = [a for a in as_list(e.get('audio')) if a.startswith('audio/voice/')]
+        st, f = status(own, names.get('voice', base), public)
         _, when, tone = lookup(ev)
+        tone = CALLOUT_TONE.get(ev, tone)
         callouts.append((ev, when, cap.get('bn', ''), cap.get('en', ''), tone, st, f))
+
+    # Recorded voice clips on events (they play with the event's own sound, captions and popups)
+    clip_rows = []
+    for ev in event_order([n for n in events if isinstance(events[n], dict)]):
+        for a in as_list(events[ev].get('audio')):
+            if a.startswith('audio/sfx/') or a.startswith('audio/engine/'):
+                continue
+            _, when, tone = lookup(ev)
+            bn, en = CLIPS.get(a, ('(not transcribed: add it to CLIPS in tools/recording_script.py)', ''))
+            on_disk = os.path.isfile(os.path.join(public, a))
+            clip_rows.append((ev, when, bn, en, tone, 'Done' if on_disk else 'Missing file', '`%s`' % a))
 
     # Meme lines: every entry in triggers, grouped by event
     voice = []
@@ -210,6 +264,10 @@ def build(memes, public):
             if not isinstance(line, dict):
                 continue
             base = kebab(ev, 8, ()) + '-' + (kebab(line.get('en', '')) or 'line')
+            if not line.get('audio') and isinstance(events.get(ev), dict) and events[ev].get('audio'):
+                # The event already plays its own recorded clip with this popup; a clip here would cut it off
+                rows.append((line.get('bn', ''), line.get('en', ''), 'Text only (event has its own clip)', '-'))
+                continue
             st, f = status(as_list(line.get('audio')), names.get('voice', base), public)
             rows.append((line.get('bn', ''), line.get('en', ''), st, f))
         voice.append((ev, when, tone, rows))
@@ -266,13 +324,13 @@ def build(memes, public):
         existing.append((p, use))
     missing = sorted(p for p in refs if p not in on_disk)
 
-    return render(callouts, voice, effects, existing, missing)
+    return render(callouts, clip_rows, voice, effects, existing, missing)
 
 
-def render(callouts, voice, effects, existing, missing):
+def render(callouts, clip_rows, voice, effects, existing, missing):
     out = []
     w = out.append
-    n_lines = sum(len(r) for _, _, _, r in voice)
+    n_lines = sum(1 for _, _, _, rows in voice for r in rows if not r[2].startswith('Text only'))
     done_lines = sum(1 for _, _, _, rows in voice for r in rows if r[2] == 'Done')
     done_calls = sum(1 for c in callouts if c[5] == 'Done')
     todo_fx = [e for e in effects if e[3] != 'Covered by callouts']
@@ -292,6 +350,8 @@ def render(callouts, voice, effects, existing, missing):
     w('| What | Total | Recorded | Left |')
     w('|---|---|---|---|')
     w('| Helper callouts (record these first) | %d | %d | %d |' % (len(callouts), done_calls, len(callouts) - done_calls))
+    done_clips = sum(1 for c in clip_rows if c[5] == 'Done')
+    w('| Event voice clips | %d | %d | %d |' % (len(clip_rows), done_clips, len(clip_rows) - done_clips))
     w('| Meme voice lines | %d | %d | %d |' % (n_lines, done_lines, n_lines - done_lines))
     w('| Sound effects | %d | %d | %d |' % (len(todo_fx), done_fx, len(todo_fx) - done_fx))
     w('| Clips already in the game | %d | %d | 0 |' % (len(existing), len(existing)))
@@ -332,6 +392,17 @@ def render(callouts, voice, effects, existing, missing):
     w('| Event | When it plays | Bangla | Meaning | Delivery | Status | File |')
     w('|---|---|---|---|---|---|---|')
     for ev, when, bn, en, tone, st, f in callouts:
+        w('| `%s` | %s | %s | %s | %s | %s | %s |' % (ev, cell(when), cell(bn), cell(en), cell(tone), st, f))
+    w('')
+
+    w('## Event voice clips (recorded)')
+    w('')
+    w('Recorded lines that play on a game event, together with its sound effect, helper callout and popup. '
+      'They are done; re-record one only to improve it, keeping the same file name.')
+    w('')
+    w('| Event | When it plays | Bangla | Meaning | Delivery | Status | File |')
+    w('|---|---|---|---|---|---|---|')
+    for ev, when, bn, en, tone, st, f in clip_rows:
         w('| `%s` | %s | %s | %s | %s | %s | %s |' % (ev, cell(when), cell(bn), cell(en), cell(tone), st, f))
     w('')
 
