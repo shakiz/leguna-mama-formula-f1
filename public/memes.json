@@ -139,6 +139,12 @@
     "stretch_asadave": {
       "sfx": "splash"
     },
+    "stretch_townhall": {
+      "sfx": [
+        "bell",
+        "horn"
+      ]
+    },
     "stretch_mohammadpur": {
       "sfx": "slap"
     },
@@ -638,6 +644,18 @@
       {
         "bn": "ফাঁকা রাস্তা! টান দেন মামা! 🏎️",
         "en": "Empty road! Floor it, Mama! 🏎️"
+      },
+      {
+        "bn": "ডানে সংসদ ভবন, সামনে ফাঁকা রাস্তা! 🏛️",
+        "en": "Parliament on the right, open road ahead! 🏛️"
+      },
+      {
+        "bn": "সংসদ ভবনের ডিজাইন আর মামার ড্রাইভিং — দুইটাই মাস্টারপিস 😎",
+        "en": "The Parliament's design and Mama's driving — both masterpieces 😎"
+      },
+      {
+        "bn": "লেকের পানিতে সংসদ ভবন, রাস্তায় লেগুনা — সুন্দর ঢাকা! 🌇",
+        "en": "Parliament in the lake, leguna on the road — beautiful Dhaka! 🌇"
       }
     ],
     "stretch_asadgate": [
@@ -648,6 +666,10 @@
       {
         "bn": "সিগন্যাল তো ছাড়ে না!",
         "en": "The signal never turns green!"
+      },
+      {
+        "bn": "আসাদ গেট এসে গেছে, এইবার ডানে মামা! ➡️",
+        "en": "Asad Gate's here — now go right, Mama! ➡️"
       }
     ],
     "stretch_asadave": [
@@ -656,10 +678,28 @@
         "en": "It's flooded, Mama! 🌧️"
       }
     ],
+    "stretch_townhall": [
+      {
+        "bn": "টাউন হল মার্কেট! মাছ কিনবেন না প্যাসেঞ্জার তুলবেন? 🐟",
+        "en": "Town Hall Market! Buying fish or picking up passengers? 🐟"
+      },
+      {
+        "bn": "ইলিশের দাম শুনে লেগুনাও থেমে গেল 😱",
+        "en": "Even the leguna stalled when it heard the hilsa price 😱"
+      },
+      {
+        "bn": "সবজি, মাছ, মানুষ — রাস্তা কই মামা? 🥬",
+        "en": "Veg, fish, people — where's the road, Mama? 🥬"
+      }
+    ],
     "stretch_mohammadpur": [
       {
         "bn": "নামেন নামেন, বাসস্ট্যান্ড!",
         "en": "Off you get — bus stand!"
+      },
+      {
+        "bn": "মোহাম্মদপুর! শেষ স্টপ, সবাই নামেন 🚏",
+        "en": "Mohammadpur! Last stop, everybody off 🚏"
       }
     ],
     "finish": [
