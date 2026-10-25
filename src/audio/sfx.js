@@ -262,6 +262,20 @@ const SFX = {
     tone('triangle', 620, 430, 0.5, 0.14, 0.05);
     tone('triangle', 910, 650, 0.35, 0.08, 0.08);
   },
+  // Motorbike: a throttle blip ("brrRAAP") and a cheeky pip-pip on its tiny horn
+  rev: () => {
+    tone('sawtooth', 70, 190, 0.32, 0.12);
+    tone('square', 140, 380, 0.32, 0.05);
+    noise(0.3, 0.2, 'bandpass', 500, 1500);
+    tone('square', 1250, 1250, 0.06, 0.07, 0.38);
+    tone('square', 1250, 1250, 0.08, 0.07, 0.48);
+  },
+  // Battery rickshaw: the motor's thin electric whine rising, then its tinny squeeze horn
+  ewhine: () => {
+    tone('sine', 900, 2400, 0.5, 0.06);
+    tone('triangle', 1800, 4200, 0.5, 0.025);
+    tone('square', 1480, 1400, 0.16, 0.06, 0.52);
+  },
   bonus: () => {
     tone('square', 1319, 1319, 0.06, 0.08);
     tone('square', 1760, 1760, 0.14, 0.08, 0.06);

@@ -140,6 +140,52 @@ const DRAW = {
     stripeDots(g, 14, 367, 112, C.yellow);
   },
 
+  // Motorbike with rider and pillion: the rider wears the helmet, the pillion just holds on and hopes
+  bike(g) {
+    g.fillStyle(0x000000, 0.2).fillEllipse(34, 68, 40, 110);
+    // wheels, front and back
+    g.fillStyle(0x1e1e1e).fillRoundedRect(23, 0, 12, 28, 5).fillRoundedRect(23, 96, 12, 28, 5);
+    g.fillStyle(0xfff7b0).fillCircle(29, 4, 4);
+    // handlebar with mirrors, then the red tank and seat
+    g.lineStyle(4, 0x6e6e76).lineBetween(8, 26, 50, 26);
+    g.fillStyle(0x9a9a9a).fillCircle(8, 21, 4).fillCircle(50, 21, 4);
+    g.fillStyle(C.red).fillRoundedRect(18, 28, 22, 26, 8);
+    g.fillStyle(0x2b2b2b).fillRoundedRect(19, 52, 20, 50, 6);
+    // rider: blue shirt, arms out to the bars, shiny yellow helmet with a visor
+    g.lineStyle(6, C.blue).lineBetween(16, 52, 10, 28).lineBetween(42, 52, 48, 28);
+    g.fillStyle(C.blue).fillEllipse(29, 58, 40, 22);
+    g.fillStyle(C.yellow).fillCircle(29, 50, 11);
+    g.fillStyle(C.ink).fillRoundedRect(22, 40, 14, 5, 2);
+    // pillion: magenta shirt, bare head
+    g.fillStyle(C.magenta).fillEllipse(29, 84, 38, 20);
+    g.fillStyle(0x3a2a1a).fillCircle(29, 80, 9);
+    g.fillStyle(C.red).fillRect(23, 118, 12, 4);
+  },
+
+  // Battery rickshaw ("Tesla"): one front wheel, a painted canopy over an open cabin with the
+  // passengers' knees poking out of the sides, and the bench and battery box at the back
+  tesla(g) {
+    g.fillStyle(0x000000, 0.22).fillRoundedRect(10, 16, 84, 150, 22);
+    g.fillStyle(0x1e1e1e).fillRoundedRect(42, 0, 14, 24, 5).fillRect(2, 118, 10, 28).fillRect(86, 118, 10, 28);
+    g.lineStyle(4, 0x9a9a9a).lineBetween(24, 24, 74, 24);
+    g.fillStyle(0xfff7b0).fillCircle(49, 6, 4);
+    // open sides: passengers' knees and a dangling foot
+    g.fillStyle(C.teal).fillEllipse(10, 70, 16, 22).fillEllipse(88, 96, 16, 22);
+    g.fillStyle(0x6b3e26).fillCircle(8, 82, 5).fillCircle(90, 108, 5);
+    // canopy: green with a yellow trim, rickshaw-art flower and rivets
+    g.fillStyle(C.green).fillRoundedRect(12, 28, 74, 106, 16);
+    g.lineStyle(4, C.yellow).strokeRoundedRect(16, 32, 66, 98, 13);
+    g.fillStyle(C.magenta).fillRect(16, 46, 66, 8);
+    stripeDots(g, 16, 50, 66, C.yellow);
+    flower(g, 49, 90, 14, C.magenta, C.yellow);
+    g.fillStyle(C.cream).fillCircle(24, 64, 3).fillCircle(74, 64, 3).fillCircle(24, 120, 3).fillCircle(74, 120, 3);
+    // rear bench with a passenger facing backwards, battery box under it
+    g.fillStyle(0x2b2b2b).fillRoundedRect(18, 134, 62, 26, 6);
+    g.fillStyle(C.blue).fillRoundedRect(22, 152, 54, 10, 3);
+    g.fillStyle(C.red).fillEllipse(49, 142, 30, 16);
+    g.fillStyle(C.ink).fillCircle(49, 146, 8);
+  },
+
   car(g) {
     g.fillStyle(0x000000, 0.25).fillRoundedRect(8, 8, 100, 172, 24);
     g.fillStyle(0xe8e8ee).fillRoundedRect(2, 0, 100, 172, 24);
@@ -318,6 +364,7 @@ DRAW.ped1 = (g) => person(g, C.magenta, 0x3a2a1a);
 
 const SIZES = {
   leguna: [136, 198], rickshaw: [96, 160], cng: [104, 164], bus: [146, 332], brtc: [150, 384], car: [110, 182],
+  bike: [58, 124], tesla: [98, 166],
   police: [116, 116], cow: [92, 170], hawker: [90, 90], puddle: [170, 110], passenger: [84, 96],
   tree: [100, 100], stall: [104, 124], legunaBrake: [136, 198],
   speedbreaker: [480, 30], pothole: [96, 72], manhole: [84, 84], patch: [140, 90], crack: [120, 120], oil: [90, 60],
