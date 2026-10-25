@@ -81,13 +81,17 @@ EVENTS = {
     'rickshaw_dhur': (CRASH, 'A quarter of a second after the leguna crashes into a rickshaw or a "Tesla": the driver '
                       'swears at the leguna.',
                       'Fed-up rickshaw-wala: a long, disgusted "dhur", then the jab. Annoyed, not angry.'),
-    'stretch_manikmia': (SETPIECE, 'Entering Manik Mia Avenue: wide, empty and fast.', 'Excited, egging the driver on.'),
+    'voice_crash': (CRASH, 'Right after any other collision (cars, buses, the BRTC, the VIP, bikes, cows, manholes, '
+                    'pedestrians): someone checks on the leguna driver.',
+                    'Mock-concerned and a little sarcastic, like a bystander leaning in: "you alright, hm?"'),
+    'stretch_manikmia': (SETPIECE, 'Entering Manik Mia Avenue: wide, empty and fast, the Parliament on the right.',
+                         'Excited, egging the driver on.'),
+    'stretch_townhall': (SETPIECE, 'Entering Mohammadpur Town Hall Market: stalls, fish and crowds on both sides.',
+                         'Market bustle: amused, shouting over the haggling.'),
     'stretch_asadgate': (SETPIECE, 'Entering Asad Gate: the jam and the signal.', 'Fed up, exasperated.'),
     'stretch_asadave': (SETPIECE, 'Entering Asad Avenue: waterlogged in the rain.', 'Resigned, half laughing at the water.'),
     'stretch_mohammadpur': (SETPIECE, 'Entering Mohammadpur: the last stretch to the bus stand.',
                             'Announcing the stop like a helper: loud, sing-song.'),
-    'stretch_townhall': (SETPIECE, 'Entering Town Hall Market in Mohammadpur: stalls, hawkers and rickshaws everywhere.',
-                         'Market-day bustle: loud, amused, a little overwhelmed.'),
     'turn_left': (SETPIECE, 'The leguna turns left at the signal at the end of Manik Mia Avenue (the view swings round '
                   'with it): the helper calls the turn.', 'Shouted direction from the back, quick and sing-song.'),
     'turn_right': (SETPIECE, 'The leguna turns right at Asad Gate, where a traffic police officer waves the traffic '

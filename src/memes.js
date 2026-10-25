@@ -37,8 +37,9 @@ export function getEvent(name) {
 }
 
 // A recorded clip (random variant) if one has loaded, otherwise the synth placeholder(s)
-export function playSound({ audio, sfx, volume = 1 } = {}) {
+// `polite` clips (background chatter like speedup) don't cut off a voice that is already talking.
+export function playSound({ audio, sfx, volume = 1, polite = false } = {}) {
   const variants = [].concat(audio ?? []);
-  if (variants.length && playClip(Phaser.Utils.Array.GetRandom(variants), volume)) return;
+  if (variants.length && playClip(Phaser.Utils.Array.GetRandom(variants), volume, polite)) return;
   for (const name of [].concat(sfx ?? [])) play(name);
 }

@@ -18,6 +18,12 @@
         90,
         50,
         160
+      ],
+      "chain": [
+        {
+          "event": "voice_crash",
+          "delay": 350
+        }
       ]
     },
     "crash_cow": {
@@ -29,6 +35,12 @@
         90,
         50,
         160
+      ],
+      "chain": [
+        {
+          "event": "voice_crash",
+          "delay": 350
+        }
       ]
     },
     "crash_car": {
@@ -42,6 +54,10 @@
         {
           "event": "bump_honk",
           "delay": 450
+        },
+        {
+          "event": "voice_crash",
+          "delay": 350
         }
       ]
     },
@@ -123,11 +139,14 @@
     "stretch_asadave": {
       "sfx": "splash"
     },
+    "stretch_townhall": {
+      "sfx": [
+        "bell",
+        "horn"
+      ]
+    },
     "stretch_mohammadpur": {
       "sfx": "slap"
-    },
-    "stretch_townhall": {
-      "sfx": "bell"
     },
     "turn_left": {
       "sfx": "screech",
@@ -172,7 +191,8 @@
         "audio/clips/khela-hobe.mp3"
       ],
       "sfx": "whoosh",
-      "cooldown": 25000
+      "cooldown": 25000,
+      "polite": true
     },
     "speedbreaker": {
       "sfx": "thud",
@@ -203,6 +223,12 @@
         90,
         50,
         160
+      ],
+      "chain": [
+        {
+          "event": "voice_crash",
+          "delay": 350
+        }
       ]
     },
     "crash_pedestrian": {
@@ -214,6 +240,12 @@
         90,
         50,
         160
+      ],
+      "chain": [
+        {
+          "event": "voice_crash",
+          "delay": 350
+        }
       ]
     },
     "helper_pothole": {
@@ -313,6 +345,10 @@
         {
           "event": "brtc_honk",
           "delay": 600
+        },
+        {
+          "event": "voice_crash",
+          "delay": 350
         }
       ]
     },
@@ -366,6 +402,10 @@
         {
           "event": "bump_honk",
           "delay": 600
+        },
+        {
+          "event": "voice_crash",
+          "delay": 350
         }
       ]
     },
@@ -422,6 +462,12 @@
         90,
         50,
         160
+      ],
+      "chain": [
+        {
+          "event": "voice_crash",
+          "delay": 350
+        }
       ]
     },
     "crash_tesla": {
@@ -462,7 +508,14 @@
       "audio": [
         "audio/clips/assalamualaikum-boro-bhai.mp3"
       ],
-      "cooldown": 10000
+      "cooldown": 10000,
+      "polite": true
+    },
+    "voice_crash": {
+      "audio": [
+        "audio/clips/apnare-ha-thik-ache-ha.mp3"
+      ],
+      "cooldown": 2500
     }
   },
   "triggers": {
@@ -605,6 +658,18 @@
       {
         "bn": "ফাঁকা রাস্তা! টান দেন মামা! 🏎️",
         "en": "Empty road! Floor it, Mama! 🏎️"
+      },
+      {
+        "bn": "ডানে সংসদ ভবন, সামনে ফাঁকা রাস্তা! 🏛️",
+        "en": "Parliament on the right, open road ahead! 🏛️"
+      },
+      {
+        "bn": "সংসদ ভবনের ডিজাইন আর মামার ড্রাইভিং — দুইটাই মাস্টারপিস 😎",
+        "en": "The Parliament's design and Mama's driving — both masterpieces 😎"
+      },
+      {
+        "bn": "লেকের পানিতে সংসদ ভবন, রাস্তায় লেগুনা — সুন্দর ঢাকা! 🌇",
+        "en": "Parliament in the lake, leguna on the road — beautiful Dhaka! 🌇"
       }
     ],
     "stretch_asadgate": [
@@ -615,6 +680,10 @@
       {
         "bn": "সিগন্যাল তো ছাড়ে না!",
         "en": "The signal never turns green!"
+      },
+      {
+        "bn": "আসাদ গেট এসে গেছে, এইবার ডানে মামা! ➡️",
+        "en": "Asad Gate's here — now go right, Mama! ➡️"
       }
     ],
     "stretch_asadave": [
@@ -623,16 +692,32 @@
         "en": "It's flooded, Mama! 🌧️"
       }
     ],
+    "stretch_townhall": [
+      {
+        "bn": "টাউন হল মার্কেট! মাছ কিনবেন না প্যাসেঞ্জার তুলবেন? 🐟",
+        "en": "Town Hall Market! Buying fish or picking up passengers? 🐟"
+      },
+      {
+        "bn": "ইলিশের দাম শুনে লেগুনাও থেমে গেল 😱",
+        "en": "Even the leguna stalled when it heard the hilsa price 😱"
+      },
+      {
+        "bn": "সবজি, মাছ, মানুষ — রাস্তা কই মামা? 🥬",
+        "en": "Veg, fish, people — where's the road, Mama? 🥬"
+      },
+      {
+        "bn": "টাউন হল বাজার! মাছ, সবজি, রিকশা সব একসাথে 🐟",
+        "en": "Town Hall Market! Fish, veg and rickshaws all at once 🐟"
+      }
+    ],
     "stretch_mohammadpur": [
       {
         "bn": "নামেন নামেন, বাসস্ট্যান্ড!",
         "en": "Off you get — bus stand!"
-      }
-    ],
-    "stretch_townhall": [
+      },
       {
-        "bn": "টাউন হল বাজার! মাছ, সবজি, রিকশা সব একসাথে 🐟",
-        "en": "Town Hall Market! Fish, veg and rickshaws all at once 🐟"
+        "bn": "মোহাম্মদপুর! শেষ স্টপ, সবাই নামেন 🚏",
+        "en": "Mohammadpur! Last stop, everybody off 🚏"
       }
     ],
     "turn_left": [

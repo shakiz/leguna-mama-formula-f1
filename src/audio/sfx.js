@@ -15,6 +15,16 @@ const voices = new Set();
 // ducking never fights the buses' own fades and speed ramps
 let duck = null;
 const DUCK = { music: 0.35, ambience: 0.35, engine: 0.7 }; // bed levels while a voice talks
+// Event sounds and voice clips get their own stages, louder than the beds (music, ambience, engine),
+// with a limiter on the output so the extra level can't clip when several sounds pile up
+const FX_GAIN = 1.5;
+const VOICE_GAIN = 1.4;
+let fx = null;
+let voiceBus = null;
+// Clips are levelled when they decode: each is brought to about this average level (≈ -11 dBFS),
+// without pushing its peaks further past full scale than the limiter catches cleanly
+const VOICE_RMS = 0.28;
+const VOICE_MAX_PEAK = 1.8;
 
 export function unlockAudio() {
   if (!ctx) {
@@ -23,7 +33,15 @@ export function unlockAudio() {
     ctx = new AC();
     master = ctx.createGain();
     master.gain.value = muted ? 0 : 0.7;
-    master.connect(ctx.destination);
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -3;
+    limiter.knee.value = 3;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.002;
+    limiter.release.value = 0.12;
+    master.connect(limiter).connect(ctx.destination);
+    fx = gainNode(FX_GAIN, master);
+    voiceBus = gainNode(VOICE_GAIN, master);
     duck = {};
     for (const k of Object.keys(DUCK)) duck[k] = gainNode(1, master);
     document.addEventListener('visibilitychange', () => {
@@ -52,16 +70,33 @@ function decodeClip(entry) {
     .then((d) => d && ctx.decodeAudioData(d))
     .then((b) => {
       entry.buffer = b || null;
+      if (b) entry.level = clipLevel(b);
     })
     .catch(() => {});
 }
 
+// Gain that brings a clip to VOICE_RMS: the user's clips range from about -9 to -23 dBFS on average
+function clipLevel(buffer) {
+  const d = buffer.getChannelData(0);
+  let sum = 0;
+  let peak = 0;
+  for (let i = 0; i < d.length; i++) {
+    const x = Math.abs(d[i]);
+    sum += x * x;
+    if (x > peak) peak = x;
+  }
+  const rms = Math.sqrt(sum / d.length);
+  return rms && peak ? Math.min(VOICE_RMS / rms, VOICE_MAX_PEAK / peak) : 1;
+}
+
 // Every clip played here is a voice: one at a time (a new one cuts off the last with a quick fade),
-// and the music, ambience and engine duck under it. Returns false when the clip is missing or not
-// decoded yet, so the caller can fall back to a synth sound.
-export function playClip(url, volume = 1) {
+// and the music, ambience and engine duck under it. A polite clip stays quiet instead of cutting
+// someone off. Returns false when the clip is missing or not decoded yet, so the caller can fall
+// back to a synth sound.
+export function playClip(url, volume = 1, polite = false) {
   const entry = clips.get(url);
   if (!ctx || muted || !entry?.buffer) return false;
+  if (polite && voices.size) return true;
   const t = ctx.currentTime;
   for (const v of voices) {
     v.g.gain.setValueAtTime(v.g.gain.value, t);
@@ -71,7 +106,7 @@ export function playClip(url, volume = 1) {
   }
   const src = ctx.createBufferSource();
   src.buffer = entry.buffer;
-  const g = gainNode(volume, master);
+  const g = gainNode(volume * (entry.level ?? 1), voiceBus);
   src.connect(g);
   const v = { src, g };
   voices.add(v);
@@ -99,7 +134,7 @@ export function setMuted(m) {
   if (master) master.gain.value = m ? 0 : 0.7;
 }
 
-function tone(type, f0, f1, dur, vol = 0.3, when = 0, out = master) {
+function tone(type, f0, f1, dur, vol = 0.3, when = 0, out = fx) {
   const t = ctx.currentTime + when;
   const o = ctx.createOscillator();
   const g = ctx.createGain();
@@ -127,7 +162,7 @@ function blare(freq, dur, vol, when = 0) {
   g.gain.exponentialRampToValueAtTime(vol, t + 0.04);
   g.gain.setValueAtTime(vol, t + dur - 0.1);
   g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  o.connect(f).connect(g).connect(master);
+  o.connect(f).connect(g).connect(fx);
   o.start(t);
   o.stop(t + dur + 0.05);
 }
@@ -142,7 +177,7 @@ function noiseBuffer() {
   return noiseBuf;
 }
 
-function noise(dur, vol, filterType, f0, f1, when = 0, out = master) {
+function noise(dur, vol, filterType, f0, f1, when = 0, out = fx) {
   const t = ctx.currentTime + when;
   const src = ctx.createBufferSource();
   src.buffer = noiseBuffer();
@@ -294,7 +329,7 @@ const SFX = {
     const f = ctx.createBiquadFilter();
     f.type = 'lowpass';
     f.frequency.value = 2600;
-    f.connect(g).connect(master);
+    f.connect(g).connect(fx);
     // Two voices a major third apart, so it reads as a siren rather than a single whistle
     for (const [type, k] of [['sawtooth', 1], ['square', 1.26]]) {
       const o = ctx.createOscillator();
