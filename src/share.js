@@ -39,11 +39,8 @@ function drawCard(scene, time) {
   x.strokeStyle = CSS.yellow;
   x.stroke();
 
-  x.save();
-  x.translate(540, 300);
-  x.rotate(-0.12);
-  x.drawImage(scene.textures.get('leguna').getSourceImage(), -93, -147, 186, 294);
-  x.restore();
+  const art = scene.textures.get('leguna-side').getSourceImage();
+  x.drawImage(art, 220, 140, 640, (640 * art.height) / art.width);
 
   const s = fmtTime(time);
   x.textAlign = 'center';

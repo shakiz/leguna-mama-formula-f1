@@ -15,7 +15,7 @@ export default class ResultScene extends Phaser.Scene {
   }
 
   create() {
-    const { time, fare, crashes, isBest } = this.result;
+    const { time, fare, crashes, closeCalls, fines, isBest } = this.result;
     this.add.tileSprite(W / 2, H / 2, W, H, 'road');
     this.add.rectangle(W / 2, H / 2, W, H, COLORS.ink, 0.5);
 
@@ -29,15 +29,17 @@ export default class ResultScene extends Phaser.Scene {
 
     const timeLabel = text(this, W / 2, 400, `${fmtTime(time)} ${t('sec')}`, 96, CSS.ink).setOrigin(0.5);
     if (timeLabel.width > 500) timeLabel.setScale(500 / timeLabel.width);
-    this.add.image(W / 2, 590, 'leguna').setAngle(-8);
+    this.add.image(W / 2, 568, 'leguna-side').setScale(0.6);
 
     const rows = [
       [`🪙 ${t('fare')}`, `৳ ${num(fare)}`],
+      [`😮‍💨 ${t('closeCalls')}`, num(closeCalls)],
       [`💥 ${t('crashes')}`, num(crashes)],
+      ...(fines ? [[`👮 ${t('fine')}`, `৳ ${num(fines)}`]] : []),
       [`🏆 ${t('best')}`, `${fmtTime(load('best', time))} ${t('sec')}`],
     ];
     rows.forEach(([k, v], i) => {
-      const y = 730 + i * 56;
+      const y = 690 + i * (rows.length > 4 ? 46 : 52);
       text(this, 120, y, k, 34, CSS.ink).setOrigin(0, 0.5);
       text(this, W - 120, y, v, 34, CSS.magenta).setOrigin(1, 0.5);
     });

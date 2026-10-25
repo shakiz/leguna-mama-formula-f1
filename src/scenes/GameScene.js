@@ -1,19 +1,54 @@
 import Phaser from 'phaser';
 import {
   W, H, ROAD_X, ROAD_W, LANES, LANE_W, laneX, PLAYER_Y, HUD_H,
-  BASE_SPEED, ACCEL, ROUTE_LENGTH, KINDS, STRETCHES, FARE_PER_PASSENGER, COLORS, CSS,
+  BASE_SPEED, ACCEL, ROUTE_LENGTH, KINDS, STRETCHES, FARE_PER_PASSENGER, CLOSE_MARGIN, CLOSE_BONUS, COLORS, CSS,
+  BRAKE_DECEL, RED_LIGHT_FINE, JUNCTION,
 } from '../config.js';
-import { t, pick, fmtTime, num } from '../i18n.js';
-import { play, startMusic, stopMusic, isMuted, setMuted } from '../audio/sfx.js';
-import { pickMeme, playMemeSound } from '../memes.js';
+import { pick, fmtTime, num } from '../i18n.js';
+import {
+  startMusic, stopMusic, isMuted, setMuted, startEngine, setEngine, stopEngine, setAmbience, stopAmbience, vibrate,
+} from '../audio/sfx.js';
+import { pickMeme, getEvent, playSound } from '../memes.js';
 import { load, save } from '../storage.js';
 import { text, artFrame } from '../ui.js';
+import { buildTrack, offsetAt, angleAt, features, zoneAt } from '../track.js';
+import RoadRenderer from '../road.js';
+import { ROOFS } from '../art/textures.js';
 
 const MEME_COOLDOWN = 1800; // ms between non-forced meme popups
 const BAR_X = 40;
 const BAR_W = W - 80;
 // Distance from spawn (y = -120) to the player, so the finish banner arrives as the route ends
 const FINISH_BANNER_LEAD = PLAYER_Y + 120;
+const BUILDING_GAP = 205; // rooftops are 220 tall, so neighbours overlap a little like a real street
+const OVERHEAD_PARALLAX = 1.07; // overhead things slide a touch faster than the road, so they read as higher up
+const SPAWN_AHEAD = PLAYER_Y + 320; // route distance ahead of the player at which set pieces are created
+const SPAWN_Y = -200; // row where random traffic appears, just above the screen
+const FAIR_MARGIN = 60; // px of extra room the spawn check keeps free around each solid, for a lane change
+// Lane changers (bike, "Tesla"): their tail stays at least SWERVE_SAFE px ahead of the leguna's nose for
+// the whole move, in every lane, since the player may be steering into the target lane at that moment.
+// SWERVE_GAP is the room they keep to other vehicles in the target lane.
+const SWERVE_SAFE = 250;
+const SWERVE_GAP = 40;
+const SWERVE_LOOKAHEAD = 3; // s
+// Dev-only test keys for kinds beyond the first ten (which are on 1-9 and 0)
+const DEV_KEYS = { KeyB: 'bike', KeyT: 'tesla' };
+// Signal lamp offsets from the signal head's centre, per state
+const LAMP = { red: [20, -16, 0xff3b30], yellow: [20, 3, 0xffcc00], green: [20, 22, 0x2ecc40] };
+// The view leans this share of the road's heading into bends, up to MAX_LEAN, easing in at LEAN_RATE
+const LEAN = 0.3;
+const MAX_LEAN = Phaser.Math.DegToRad(2);
+const LEAN_RATE = 3; // per second
+// Speed streaks fade in from just under cruising speed and are at full strength with the avenue's bonus
+const STREAK_FROM = BASE_SPEED * 0.95;
+const STREAK_FULL = BASE_SPEED * 1.25;
+
+const laneOf = (rx) => Phaser.Math.Clamp(Math.floor((rx - ROAD_X) / LANE_W), 0, LANES - 1);
+const nearJunction = (d) => features.some((f) => f.type === 'junction' && Math.abs(d - f.d) < JUNCTION.clear);
+
+// Everything in the world lives in road coordinates: rx is the sideways position on a straight road
+// (what laneX gives) and ry the screen row. place() bends that onto the screen, so gameplay, lanes and
+// collisions never need to know about curves. Optional extras: tilt (deg) and lift (px) for animations.
 
 function weightedPick(weights) {
   const entries = Object.entries(weights);
@@ -31,7 +66,13 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create() {
-    this.road = this.add.tileSprite(W / 2, H / 2, W, H, 'road');
+    buildTrack();
+    // Two cameras: the main one leans into bends, the HUD camera stays level on top. Everything
+    // added to the scene is world (main camera only) unless toHud() moves it to the HUD camera.
+    this.hudCam = this.cameras.add(0, 0, W, H);
+    this.events.on(Phaser.Scenes.Events.ADDED_TO_SCENE, this.toWorld, this);
+    this.lean = 0;
+    this.road = new RoadRenderer(this, this);
     this.things = [];
     this.lane = 1;
     this.speed = 0;
@@ -39,25 +80,61 @@ export default class GameScene extends Phaser.Scene {
     this.elapsed = 0;
     this.fare = 0;
     this.crashes = 0;
+    this.closeCalls = 0;
+    this.eventAt = {};
     this.stun = 0;
     this.invuln = 0;
     this.slow = 0;
     this.sinceSpawn = 0;
     this.nextGap = 700;
     this.sinceDecor = 0;
+    this.sinceBuilding = 0;
+    this.sinceDecal = 0;
+    this.sinceWires = 600;
+    this.featureIdx = 0;
+    this.junction = null;
+    this.braking = false;
+    this.flooded = false;
+    this.hop = 0;
+    this.fines = 0;
+    this.playerOff = 0;
     this.stretchIdx = -1;
     this.finished = false;
     this.finishBanner = false;
     this.lastMemeAt = -Infinity;
 
-    this.player = this.add.image(laneX(1), PLAYER_Y, 'leguna').setDepth(20);
+    this.player = this.add.image(0, 0, 'leguna').setDepth(20);
+    this.player.rx = laneX(1);
+    this.player.ry = PLAYER_Y;
+    this.player.tilt = 0;
+
+    // Fill the street before the first frame so the roadside isn't empty at the start
+    for (let y = H + 110; y > -160; y -= BUILDING_GAP) this.spawnBuildings(y);
+    for (let y = H + 60; y > -140; y -= 240) this.spawnDecor(y);
 
     this.createHud();
     this.setupInput();
     this.enterStretch(0);
-    this.meme('start', true);
+    this.fireEvent('start', { forceMeme: true });
     startMusic();
-    this.events.once('shutdown', () => stopMusic());
+    startEngine();
+    this.events.once('shutdown', () => {
+      stopMusic();
+      stopEngine();
+      stopAmbience();
+      this.events.off(Phaser.Scenes.Events.ADDED_TO_SCENE, this.toWorld, this);
+    });
+  }
+
+  toWorld(o) {
+    o.cameraFilter = this.hudCam.id;
+  }
+
+  // HUD, popups and callouts: drawn level by the HUD camera, untouched by the lean and shake
+  toHud(o) {
+    o.cameraFilter = this.cameras.main.id;
+    o.list?.forEach((c) => this.toHud(c));
+    return o;
   }
 
   // --- input -------------------------------------------------------------
@@ -68,16 +145,40 @@ export default class GameScene extends Phaser.Scene {
     kb.on('keydown-A', () => this.steer(-1));
     kb.on('keydown-RIGHT', () => this.steer(1));
     kb.on('keydown-D', () => this.steer(1));
+    for (const key of ['DOWN', 'S']) {
+      kb.on(`keydown-${key}`, () => (this.braking = true));
+      kb.on(`keyup-${key}`, () => (this.braking = false));
+    }
 
-    // Swipe steers as soon as the finger has moved far enough; a plain tap steers towards its side on release
+    // Dev-only test keys: 1-9 and 0 spawn the first ten kinds in your lane, B a bike and T a "Tesla";
+    // with Shift, in the next lane over
+    if (import.meta.env.DEV) {
+      kb.on('keydown', (e) => {
+        const kind = e.code.startsWith('Digit') ? Object.keys(KINDS)[(Number(e.code.slice(5)) || 10) - 1] : DEV_KEYS[e.code];
+        if (!kind) return;
+        const lane = e.shiftKey ? (this.lane === LANES - 1 ? this.lane - 1 : this.lane + 1) : this.lane;
+        this.spawn(kind, lane);
+      });
+      // C toggles a line down the middle of the road, for tuning bends
+      kb.on('keydown-C', () => {
+        this.road.showCentre = !this.road.showCentre;
+      });
+    }
+
+    // Swipe sideways steers as soon as the finger has moved far enough, swipe down brakes until the
+    // finger lifts, and a plain tap steers towards its side on release
     this.input.on('pointerdown', (p) => {
-      this.gesture = p.y > HUD_H ? { x: p.x, handled: false } : null;
+      this.gesture = p.y > HUD_H ? { x: p.x, y: p.y, handled: false, brake: false } : null;
     });
     this.input.on('pointermove', (p) => {
       const g = this.gesture;
       if (!g || g.handled || !p.isDown) return;
       const dx = p.x - g.x;
-      if (Math.abs(dx) > 36) {
+      const dy = p.y - g.y;
+      if (dy > 40 && dy > Math.abs(dx)) {
+        g.handled = g.brake = true;
+        this.braking = true;
+      } else if (Math.abs(dx) > 36) {
         g.handled = true;
         this.steer(Math.sign(dx));
       }
@@ -85,7 +186,8 @@ export default class GameScene extends Phaser.Scene {
     this.input.on('pointerup', (p) => {
       const g = this.gesture;
       this.gesture = null;
-      if (g && !g.handled) this.steer(p.x < W / 2 ? -1 : 1);
+      if (g?.brake) this.braking = false;
+      else if (g && !g.handled) this.steer(p.x < W / 2 ? -1 : 1);
     });
   }
 
@@ -93,25 +195,71 @@ export default class GameScene extends Phaser.Scene {
     if (this.finished) return;
     const to = Phaser.Math.Clamp(this.lane + dir, 0, LANES - 1);
     if (to === this.lane) return;
-    this.checkNearMiss(this.lane);
+    this.checkNearMiss(this.lane, dir);
     this.lane = to;
     this.steerTween?.stop();
-    this.steerTween = this.tweens.add({ targets: this.player, x: laneX(to), duration: 130, ease: 'Sine.easeOut' });
-    this.player.angle = dir * 10;
+    this.steerTween = this.tweens.add({ targets: this.player, rx: laneX(to), duration: 130, ease: 'Sine.easeOut' });
+    this.player.tilt = dir * 10;
   }
 
-  // Dodging out of a lane just before hitting something counts as a near-miss
-  checkNearMiss(fromLane) {
-    const playerTop = this.player.y - this.player.displayHeight / 2;
-    const close = this.things.some((o) => {
-      if (!o.kind || o.done || o.lane !== fromLane || !KINDS[o.kind].solid) return false;
-      const bottom = o.y + o.displayHeight / 2;
-      return bottom > playerTop - 150 && bottom < playerTop + 10;
-    });
-    if (close) {
-      play('whoosh');
-      this.meme('nearmiss');
+  // Dodging out of a lane just before hitting something is a close turn. checkProximity pays it out
+  // once the vehicle is outside the close zone; crashing into it before then cancels the payout.
+  checkNearMiss(fromLane, dir) {
+    const playerTop = PLAYER_Y - this.player.displayHeight / 2;
+    for (const o of this.things) {
+      if (!o.kind || o.done || o.lane !== fromLane || !KINDS[o.kind].solid) continue;
+      const bottom = o.ry + o.displayHeight / 2;
+      if (bottom <= playerTop - 150 || bottom >= playerTop + 10) continue;
+      if (!o.close) this.fireEvent(dir > 0 ? 'helper_left' : 'helper_right', { meme: false });
+      o.close = 'closeturn';
     }
+  }
+
+  // Coming within CLOSE_MARGIN of a vehicle without touching it: the helper shouts which side it's on
+  // straight away, and the bonus lands once the vehicle has cleared the zone
+  checkProximity(o) {
+    const p = this.player;
+    const dx = o.rx - p.rx;
+    const widths = ((o.colW ?? o.displayWidth) + p.displayWidth) / 2;
+    const gapX = Math.abs(dx) - widths;
+    const gapY = Math.abs(o.ry - PLAYER_Y) - ((o.colH ?? o.displayHeight) + p.displayHeight) / 2;
+    // Wide vehicles (buses, the BRTC) leave less than CLOSE_MARGIN to a neighbouring lane's centre, so
+    // for lane traffic the side margin stops short of that: just driving in the next lane never counts
+    const marginX = o.lane >= 0 ? Math.min(CLOSE_MARGIN, LANE_W - widths - 1) : CLOSE_MARGIN;
+    const inZone = gapX < marginX && gapY < CLOSE_MARGIN;
+    if (inZone && !o.close) {
+      o.close = 'close';
+      const side = Math.abs(dx) < 40 ? 'ahead' : dx < 0 ? 'left' : 'right';
+      this.fireEvent(`helper_${side}`, { meme: false });
+    } else if (!inZone && o.close && !o.closePaid) {
+      o.closePaid = true;
+      this.closeCalls++;
+      this.fare += CLOSE_BONUS;
+      this.floatText(`+৳${num(CLOSE_BONUS)}`, p.x, p.y - 120, CSS.cream);
+      this.fireEvent(`${o.close}_${o.kind}`);
+    }
+  }
+
+  // --- road geometry -------------------------------------------------------
+
+  // Route distance shown at screen row y, and the row showing route distance d
+  distAt(y) {
+    return this.distance + (PLAYER_Y - y);
+  }
+
+  yOf(d) {
+    return PLAYER_Y - (d - this.distance);
+  }
+
+  // Sideways shift of row y, relative to the player's row so the leguna stays put and the road bends around it
+  offAt(y) {
+    return offsetAt(this.distAt(y)) - this.playerOff;
+  }
+
+  place(o) {
+    o.x = o.rx + this.offAt(o.ry);
+    o.y = o.ry + (o.lift ?? 0);
+    o.rotation = angleAt(this.distAt(o.ry)) + Phaser.Math.DegToRad(o.tilt ?? 0);
   }
 
   // --- world -------------------------------------------------------------
@@ -119,100 +267,392 @@ export default class GameScene extends Phaser.Scene {
   enterStretch(i) {
     this.stretchIdx = i;
     const st = STRETCHES[i];
+    setAmbience(st.ambience);
     this.spawnBanner(pick(st.name), i === 0 ? COLORS.green : COLORS.teal);
-    if (i > 0) this.meme(`stretch_${st.id}`, true);
+    if (i > 0) this.fireEvent(`stretch_${st.id}`, { forceMeme: true });
   }
 
   spawnBanner(label, color) {
-    const c = this.add.container(0, -120).setDepth(30);
+    // Built around the road's centre so it pivots correctly on bends
+    const c = this.add.container(0, 0).setDepth(30);
+    c.rx = W / 2;
+    c.ry = -120;
     const g = this.add.graphics();
-    const x = ROAD_X - 50;
+    const x = ROAD_X - 50 - W / 2;
     const w = ROAD_W + 100;
     g.fillStyle(0x555560).fillRect(x - 6, -10, 18, 60).fillRect(x + w - 12, -10, 18, 60);
     g.fillStyle(0x000000, 0.3).fillRoundedRect(x + 6, -36, w, 84, 14);
     g.fillStyle(color).fillRoundedRect(x, -46, w, 84, 14);
     g.lineStyle(5, COLORS.yellow).strokeRoundedRect(x, -46, w, 84, 14);
-    const label_ = text(this, W / 2, -4, label, 42, CSS.cream, { stroke: CSS.ink, strokeThickness: 6 }).setOrigin(0.5);
+    const label_ = text(this, 0, -4, label, 42, CSS.cream, { stroke: CSS.ink, strokeThickness: 6 }).setOrigin(0.5);
     c.add([g, label_]);
     c.vy = 0;
+    this.place(c);
     this.things.push(c);
   }
 
-  spawn() {
+  // forceKind / forceLane skip the fairness checks; the dev test keys use them
+  spawn(forceKind, forceLane) {
     const st = STRETCHES[this.stretchIdx];
-    const kind = weightedPick(st.spawn);
+    const kind = forceKind ?? weightedPick(st.spawn);
     const def = KINDS[kind];
-    const nearTop = this.things.filter((o) => o.kind && o.y < 220);
-    const free = [0, 1, 2].filter((l) => !nearTop.some((o) => o.lane === l));
-    if (!free.length) return;
-    // Always leave at least one lane without a solid obstacle
-    if (def.solid) {
-      const blocked = new Set(nearTop.filter((o) => KINDS[o.kind].solid).map((o) => o.lane));
-      if (blocked.size >= LANES - 1) return;
-    }
-    const lane = Phaser.Utils.Array.GetRandom(free);
-    const img = this.add.image(laneX(lane), -200, def.tex).setDepth(kind === 'puddle' ? 5 : 15);
-    img.kind = kind;
-    img.lane = lane;
-    img.done = false;
-    img.vy = def.vy * Phaser.Math.FloatBetween(0.85, 1.15);
+    const vy = def.vy * Phaser.Math.FloatBetween(0.85, 1.15);
     // Never approach faster than whatever is already ahead in the lane, so sprites don't overlap
-    for (const o of this.things) {
-      if (o.kind && o.lane === lane) img.vy = Math.max(img.vy, o.vy);
+    const laneVy = (l) => this.things.reduce((v, o) => (o.kind && this.inLane(o, l) ? Math.max(v, o.vy) : v), vy);
+    let lane = forceLane;
+    if (lane === undefined) {
+      const nearTop = this.things.filter((o) => o.kind && o.ry < 220);
+      let free = [0, 1, 2].filter((l) => !nearTop.some((o) => this.inLane(o, l)));
+      if (!free.length) return;
+      // Always leave at least one lane without a solid obstacle
+      if (def.solid) {
+        const blocked = new Set(nearTop.filter((o) => KINDS[o.kind].solid).flatMap((o) => o.moving ?? [o.lane]));
+        if (blocked.size >= LANES - 1) return;
+        // ...and not just up here: vehicles close in at different speeds, so a slow, long one (the BRTC)
+        // can still end up side by side with two others by the time they reach the player
+        const h = this.textures.getFrame(def.tex).height;
+        free = free.filter((l) => !this.closesRoad(l, h, laneVy(l)));
+        if (!free.length) return;
+      }
+      lane = Phaser.Utils.Array.GetRandom(free);
     }
-    if (kind === 'passenger') this.tweens.add({ targets: img, angle: 10, duration: 260, yoyo: true, repeat: -1 });
-    if (kind === 'cow') img.setAngle(Phaser.Math.Between(-20, 20));
-    this.things.push(img);
-    if (def.sfx && Math.random() < 0.35) play(def.sfx);
+    const img = this.makeThing(kind, laneX(lane), SPAWN_Y, lane);
+    img.vy = laneVy(lane);
+    if (kind === 'passenger') this.tweens.add({ targets: img, tilt: 10, duration: 260, yoyo: true, repeat: -1 });
+    if (kind === 'cow') img.tilt = Phaser.Math.Between(-20, 20);
+    if (def.weave) {
+      img.baseVy = img.vy;
+      img.tilt = 0; // the lean tween needs a number to start from
+      img.nextWeave = Phaser.Math.FloatBetween(...def.weave.every);
+    }
+    this.fireEvent(`spawn_${kind}`, { meme: false });
   }
 
-  spawnDecor() {
-    const left = Math.random() < 0.5;
-    const tex = Math.random() < 0.6 ? 'tree' : 'stall';
-    const img = this.add.image(left ? ROAD_X / 2 - 6 : W - ROAD_X / 2 + 6, -140, tex).setDepth(4);
-    if (tex === 'stall') img.setFlipX(!left);
-    img.vy = 0;
+  // When (in s from now) something at row ry, h tall, moving at vy, blocks its lane at the player's row,
+  // assuming the leguna holds the stretch's cruising speed. Null if it never gets there.
+  blockWindow(ry, h, vy) {
+    const closing = BASE_SPEED * (STRETCHES[this.stretchIdx].speedBonus ?? 1) - vy;
+    if (closing <= 0) return null;
+    const reach = (h + this.player.displayHeight) / 2 + FAIR_MARGIN;
+    return [(PLAYER_Y - reach - ry) / closing, (PLAYER_Y + reach - ry) / closing];
+  }
+
+  // Would a new solid in `lane` (at row ry; `self` is a lane changer moving over) be in the player's row
+  // at a moment when both other lanes are too?
+  closesRoad(lane, h, vy, ry = SPAWN_Y, self = null) {
+    const win = this.blockWindow(ry, h, vy);
+    if (!win) return false;
+    const [a, b] = [0, 1, 2].filter((l) => l !== lane).map((l) => this.things
+      .filter((o) => o !== self && o.kind && !o.done && !o.vx && this.inLane(o, l) && KINDS[o.kind].solid)
+      .map((o) => this.blockWindow(o.ry, o.displayHeight, o.vy))
+      .filter(Boolean));
+    return a.some((wa) => b.some((wb) => Math.max(win[0], wa[0], wb[0]) < Math.min(win[1], wa[1], wb[1])));
+  }
+
+  // A vehicle in the middle of a lane change blocks both lanes until it's across
+  inLane(o, l) {
+    return o.lane === l || !!o.moving?.includes(l);
+  }
+
+  // --- lane changers ---------------------------------------------------------
+
+  // Bikes and "Teslas" hop to an adjacent lane on a random timer, only when it's fair (canChangeLane)
+  weave(o, dt) {
+    this.keepGap(o);
+    if (o.moving) return;
+    o.nextWeave -= dt;
+    if (o.nextWeave > 0) return;
+    const w = KINDS[o.kind].weave;
+    o.nextWeave = Phaser.Math.FloatBetween(...w.every);
+    const to = Phaser.Utils.Array.Shuffle([o.lane - 1, o.lane + 1]).find((l) => l >= 0 && l < LANES && this.canChangeLane(o, l));
+    if (to === undefined) return;
+    const dir = Math.sign(to - o.lane);
+    o.moving = [o.lane, to];
+    o.vy = o.baseVy;
+    this.tweens.add({ targets: o, tilt: dir * w.tilt, duration: w.dur / 2, yoyo: true, ease: 'Sine.easeOut' });
+    this.tweens.add({
+      targets: o,
+      rx: laneX(to),
+      duration: w.dur,
+      ease: w.ease,
+      // `lane` follows the vehicle's centre, so collisions and close calls see where it really is
+      onUpdate: () => (o.lane = laneOf(o.rx)),
+      onComplete: () => {
+        o.lane = to;
+        o.moving = null;
+      },
+    });
+  }
+
+  canChangeLane(o, to) {
+    const w = KINDS[o.kind].weave;
+    const h = o.displayHeight;
+    const vy = o.baseVy;
+    const cruise = BASE_SPEED * (STRETCHES[this.stretchIdx].speedBonus ?? 1);
+    // On screen (the HUD may still cover its nose), and still SWERVE_SAFE ahead of the leguna once the move is done
+    if (o.ry < 0) return false;
+    const drift = (Math.max(this.speed, cruise) - vy) * ((w.dur + 50) / 1000); // +50 ms for frame jitter
+    if (PLAYER_Y - this.player.displayHeight / 2 - (o.ry + h / 2) - drift < SWERVE_SAFE) return false;
+    // Target lane clear now and for the next SWERVE_LOOKAHEAD s at current speeds; keepGap() handles later
+    for (const p of this.things) {
+      if (p === o || !p.kind || p.done || !KINDS[p.kind].solid || !this.inLane(p, to)) continue;
+      const need = (h + p.displayHeight) / 2 + SWERVE_GAP;
+      const d0 = p.ry - o.ry;
+      const d1 = d0 + (vy - p.vy) * SWERVE_LOOKAHEAD;
+      if (Math.abs(d0) < need || Math.abs(d1) < need || Math.sign(d0) !== Math.sign(d1)) return false;
+    }
+    // ...and never close the last free lane at the player's row (same prediction as spawn())
+    return !this.closesRoad(to, h, vy, o.ry, o);
+  }
+
+  // Never drive through the vehicle ahead: tuck in behind it at its speed, and look for a gap soon
+  keepGap(o) {
+    for (const p of this.things) {
+      if (p === o || !p.kind || p.done || !KINDS[p.kind].solid || p.vy >= o.vy || !this.inLane(p, o.lane)) continue;
+      const d = o.ry - p.ry;
+      if (d > 0 && d < (o.displayHeight + p.displayHeight) / 2 + SWERVE_GAP) {
+        o.vy = p.vy;
+        o.nextWeave = Math.min(o.nextWeave, 0.3);
+      }
+    }
+  }
+
+  // Overtaking: the vehicle goes from fully ahead of the leguna to fully behind it without a crash
+  checkPass(o) {
+    const reach = (o.displayHeight + this.player.displayHeight) / 2;
+    if (o.ry < PLAYER_Y - reach) o.ahead = true;
+    else if (o.ahead && o.ry > PLAYER_Y + reach) {
+      o.ahead = false;
+      this.fireEvent(`pass_${o.kind}`);
+    }
+  }
+
+  makeThing(kind, rx, ry, lane, tex) {
+    const def = KINDS[kind];
+    const img = this.add.image(0, 0, tex ?? def.tex).setDepth(def.depth ?? (kind === 'puddle' ? 5 : 15));
+    Object.assign(img, { rx, ry, kind, lane, done: false, vy: def.vy * Phaser.Math.FloatBetween(0.85, 1.15) });
+    this.place(img);
     this.things.push(img);
+    return img;
+  }
+
+  // Scenery with no gameplay: rooftops, stalls, decals, overhead wires...
+  makeProp(tex, rx, ry, depth, extra = {}) {
+    const img = this.add.image(0, 0, tex).setDepth(depth);
+    Object.assign(img, { rx, ry, vy: 0 }, extra);
+    this.place(img);
+    this.things.push(img);
+    return img;
+  }
+
+  // --- set pieces ----------------------------------------------------------
+
+  spawnFeature(f) {
+    const ry = this.yOf(f.d);
+    if (f.type === 'speedbreaker') {
+      this.makeThing('speedbreaker', W / 2, ry, -1);
+    } else if (f.type === 'zebra') {
+      this.spawnPedestrians(ry);
+    } else if (f.type === 'footbridge') {
+      this.makeProp('footbridge', W / 2, ry + 46, 6, { tint: 0x000000, alpha: 0.25 });
+      this.makeProp('footbridge', W / 2, ry, 40, { par: OVERHEAD_PARALLAX });
+    } else if (f.type === 'bunting') {
+      this.makeProp('bunting', W / 2, ry, 40, { par: OVERHEAD_PARALLAX });
+    } else if (f.type === 'junction') {
+      this.setupJunction(f.d);
+    }
+  }
+
+  // People crossing at a zebra, walking from either pavement
+  spawnPedestrians(ry) {
+    for (const [i, dir] of [[0, 1], [1, -1]]) {
+      const rx = dir > 0 ? ROAD_X - 30 - i * 60 : ROAD_X + ROAD_W + 30 + i * 60;
+      const ped = this.makeThing('pedestrian', rx, ry + (i ? 30 : -30), -1, i ? 'ped1' : 'ped0');
+      ped.vx = dir * Phaser.Math.Between(70, 95);
+      ped.tilt = dir * 90;
+    }
+    this.fireEvent('spawn_pedestrian', { meme: false });
+  }
+
+  setupJunction(dj) {
+    const J = JUNCTION;
+    const signalRy = this.yOf(dj - J.zebra[1] - 40);
+    const j = { dj, stopD: dj - J.stopLine, state: 'green', timer: 0, waited: 0, cycled: false, sinceCross: 1, dir: 1, lamps: [] };
+    for (const left of [true, false]) {
+      const rx = left ? ROAD_X - 44 : ROAD_X + ROAD_W + 44;
+      const head = this.makeProp('signal', rx, signalRy, 41);
+      head.setFlipX(!left);
+      const lamp = this.add.circle(0, 0, 8, LAMP.green[2]).setDepth(42);
+      Object.assign(lamp, { rx, ry: signalRy, vy: 0, head, side: left ? 1 : -1 });
+      this.things.push(lamp);
+      j.lamps.push(lamp);
+    }
+    this.makeProp('police', ROAD_X + ROAD_W + 64, this.yOf(dj + J.halfWidth + 80), 14);
+    this.junction = j;
+    this.setSignal('green');
+  }
+
+  setSignal(state) {
+    const j = this.junction;
+    j.state = state;
+    for (const lamp of j.lamps) lamp.setFillStyle(LAMP[state][2]);
+  }
+
+  // The Asad Gate signal: turns as the leguna approaches, holds red until it has waited at the line
+  // (or the light times out), and fines anyone who crosses the stop line on red
+  updateJunction(dt) {
+    const j = this.junction;
+    if (!j) return;
+    for (const lamp of j.lamps) {
+      const [dx, dy] = LAMP[j.state];
+      lamp.rx = lamp.head.rx + lamp.side * dx;
+      lamp.ry = lamp.head.ry + dy;
+    }
+    const front = this.distance + this.player.displayHeight / 2;
+    const toStop = j.stopD - front;
+    if (j.state === 'green' && !j.cycled && toStop < 1500) {
+      this.setSignal('yellow');
+      j.timer = 1.4;
+      this.fireEvent('signal_yellow', { meme: false });
+    } else if (j.state === 'yellow') {
+      j.timer -= dt;
+      if (j.timer <= 0) {
+        this.setSignal('red');
+        j.timer = 7;
+        this.fireEvent('signal_red', { forceMeme: true });
+      }
+    } else if (j.state === 'red') {
+      j.timer -= dt;
+      if (toStop > -10 && this.speed < 15) j.waited += dt;
+      j.sinceCross += dt;
+      if (j.sinceCross > 0.9) {
+        j.sinceCross = 0;
+        this.spawnCrossTraffic(j);
+      }
+      if (j.waited > 2.2 || j.timer <= 0) {
+        this.setSignal('green');
+        j.cycled = true;
+        this.fireEvent(j.waited > 2.2 ? 'stopped_at_red' : 'signal_green', { forceMeme: true });
+      }
+    }
+    if (j.state === 'red' && !j.violated && j.prevToStop > 0 && toStop <= 0) {
+      j.violated = true;
+      this.fines += RED_LIGHT_FINE;
+      this.fare = Math.max(0, this.fare - RED_LIGHT_FINE);
+      this.floatText(`-৳${num(RED_LIGHT_FINE)}`, this.player.x, PLAYER_Y - 120, '#ff6b6b');
+      this.fireEvent('red_light', { forceMeme: true });
+    }
+    j.prevToStop = toStop;
+    if (toStop < -2000) this.junction = null;
+  }
+
+  // Traffic crossing the junction on red; driving on the left, so eastbound uses the far lane
+  spawnCrossTraffic(j) {
+    const dir = (j.dir = -j.dir);
+    const kind = Phaser.Utils.Array.GetRandom(['car', 'car', 'cng', 'bus', 'rickshaw']);
+    const o = this.makeThing(kind, dir > 0 ? -260 : W + 260, this.yOf(j.dj + dir * 48), -1);
+    o.vy = 0;
+    o.vx = dir * (kind === 'rickshaw' ? 170 : 360);
+    o.tilt = dir * 90;
+    o.colW = o.displayHeight;
+    o.colH = o.displayWidth;
+  }
+
+  // Random spawns pause while the signal is ahead, so the junction is about the light and cross traffic
+  junctionAhead() {
+    const j = this.junction;
+    return j && !j.cycled && j.dj - this.distance < 2600;
+  }
+
+  spawnDecor(ry = -140) {
+    const d = this.distAt(ry);
+    if (nearJunction(d)) return;
+    const left = Math.random() < 0.5;
+    if (!left && zoneAt(d, 'busstand')) return;
+    // The avenue's left side is a planted median: trees only
+    const tex = Math.random() < 0.6 || (left && zoneAt(d, 'avenue')) ? 'tree' : 'stall';
+    const img = this.makeProp(tex, left ? ROAD_X / 2 - 6 : W - ROAD_X / 2 + 6, ry, 4);
+    if (tex === 'stall') img.setFlipX(!left);
+  }
+
+  // A rooftop on each side beyond the pavement; mostly off-screen until a bend slides the road over.
+  // Lawns along the avenue, parked buses at the bus stand, and nothing on the junction's cross road.
+  spawnBuildings(ry = -160) {
+    const d = this.distAt(ry);
+    if (nearJunction(d)) return;
+    if (zoneAt(d, 'avenue')) {
+      if (Math.random() < 0.6) this.makeProp('tree', -Phaser.Math.Between(40, 160), ry, 3);
+    } else {
+      this.makeProp(Phaser.Utils.Array.GetRandom(ROOFS), -102, ry, 3, { flipX: Math.random() < 0.5 });
+    }
+    if (zoneAt(d, 'busstand')) {
+      this.makeProp('bus', W + 80, ry, 3, { tilt: Math.random() < 0.5 ? 90 : -90 });
+    } else {
+      this.makeProp(Phaser.Utils.Array.GetRandom(ROOFS), W + 102, ry, 3, { flipX: Math.random() < 0.5 });
+    }
+  }
+
+  spawnDecal() {
+    if (nearJunction(this.distAt(-150))) return;
+    const tex = Phaser.Utils.Array.GetRandom(['patch', 'crack', 'oil', 'crack']);
+    this.makeProp(tex, Phaser.Math.Between(ROAD_X + 60, ROAD_X + ROAD_W - 60), -150, 1, { tilt: Phaser.Math.Between(0, 1) * 180 });
   }
 
   // --- collisions ---------------------------------------------------------
 
   collide(o) {
-    const dx = Math.abs(o.x - this.player.x);
-    const dy = Math.abs(o.y - this.player.y);
-    if (dx > LANE_W * 0.55 || dy > ((o.displayHeight + this.player.displayHeight) / 2) * 0.8) return;
     const def = KINDS[o.kind];
+    const p = this.player;
+    const dx = Math.abs(o.rx - p.rx);
+    const dy = Math.abs(o.ry - PLAYER_Y);
+    if (!def.span && dx > (((o.colW ?? o.displayWidth) + p.displayWidth) / 2) * 0.75) return;
+    if (dy > (((o.colH ?? o.displayHeight) + p.displayHeight) / 2) * 0.8) return;
 
     if (def.effect === 'fare') {
       o.done = true;
       this.fare += FARE_PER_PASSENGER;
-      play('coin');
-      if (Math.random() < 0.6) this.meme('pickup');
+      this.fireEvent('pickup');
       this.floatText(`+৳${num(FARE_PER_PASSENGER)}`, o.x, o.y, CSS.yellow);
-      this.tweens.add({ targets: o, y: o.y - 40, scale: 0.3, alpha: 0, duration: 250 });
+      this.tweens.add({ targets: o, lift: -40, scale: 0.3, alpha: 0, duration: 250 });
     } else if (def.effect === 'slow') {
       o.done = true;
       this.slow = 1.3;
-      play('splash');
-      this.meme('puddle');
+      this.fireEvent('puddle');
       this.splash(this.player.x, this.player.y - 60);
       this.cameras.main.shake(150, 0.004);
+    } else if (def.effect === 'bump') {
+      // Speed breaker: everyone goes over it; take it fast and the leguna takes off
+      o.done = true;
+      const fast = this.speed > BASE_SPEED * 0.8;
+      this.fireEvent(fast ? 'speedbreaker_fast' : 'speedbreaker', { forceMeme: fast });
+      this.cameras.main.shake(fast ? 260 : 140, fast ? 0.012 : 0.005);
+      this.tweens.add({ targets: this, hop: fast ? -18 : -6, duration: 120, yoyo: true });
+      if (fast) this.slow = 0.5;
+    } else if (def.effect === 'jolt') {
+      o.done = true;
+      this.slow = 0.7;
+      this.fireEvent('pothole');
+      this.cameras.main.shake(220, 0.01);
     } else if (def.solid && this.invuln <= 0) {
       o.done = true;
       this.crashes++;
       this.speed = 0;
       this.stun = 0.8;
       this.invuln = 2;
-      play('crash');
       this.cameras.main.shake(260, 0.014);
-      this.meme(def.meme ?? 'crash', true);
-      const push = o.x < this.player.x ? -70 : 70;
-      this.tweens.add({ targets: o, x: o.x + push, angle: push / 3, duration: 300, ease: 'Cubic.easeOut' });
+      this.fireEvent(`crash_${o.kind}`, { forceMeme: true });
+      if (o.vx) o.vx = 0;
+      if (o.moving) {
+        this.tweens.killTweensOf(o);
+        o.moving = null;
+      }
+      const push = o.rx < this.player.rx ? -70 : 70;
+      this.tweens.add({ targets: o, rx: o.rx + push, tilt: (o.tilt ?? 0) + push / 3, duration: 300, ease: 'Cubic.easeOut' });
     }
   }
 
   floatText(str, x, y, color) {
-    const label = text(this, x, y, str, 40, color, { stroke: CSS.ink, strokeThickness: 6 }).setOrigin(0.5).setDepth(50);
+    const label = this.toHud(text(this, x, y, str, 40, color, { stroke: CSS.ink, strokeThickness: 6 }).setOrigin(0.5).setDepth(50));
     this.tweens.add({ targets: label, y: y - 110, alpha: 0, duration: 800, onComplete: () => label.destroy() });
   }
 
@@ -231,7 +671,25 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  // --- memes ---------------------------------------------------------------
+  // --- events & memes -------------------------------------------------------
+
+  // Every game event goes through here: its sound and caption (from memes.json `events`, with a
+  // per-event cooldown), then a meme popup (shared cooldown), then any chained follow-up events
+  fireEvent(name, { forceMeme = false, meme = true } = {}) {
+    const ev = getEvent(name);
+    if (ev.chance !== undefined && Math.random() > ev.chance) return;
+    const now = this.time.now;
+    const ready = now - (this.eventAt[name] ?? -Infinity) >= (ev.cooldown ?? 0);
+    if (ready) {
+      this.eventAt[name] = now;
+      playSound(ev);
+      if (ev.vibrate) vibrate(ev.vibrate);
+      if (ev.caption) this.callout(pick(ev.caption));
+    }
+    // An event on cooldown skips its meme too, so a voice line and its popup stay together
+    if (meme && ready && (ev.memeChance === undefined || Math.random() < ev.memeChance)) this.meme(name, forceMeme);
+    for (const next of ev.chain ?? []) this.time.delayedCall(next.delay ?? 0, () => this.fireEvent(next.event));
+  }
 
   meme(trigger, force = false) {
     const now = this.time.now;
@@ -239,8 +697,23 @@ export default class GameScene extends Phaser.Scene {
     const m = pickMeme(trigger);
     if (!m) return;
     this.lastMemeAt = now;
-    playMemeSound(m);
+    playSound(m);
     this.showBubble(pick(m));
+  }
+
+  // The helper hanging off the back of the leguna shouts a warning
+  callout(str) {
+    this.calloutLabel?.destroy();
+    const label = text(this, this.player.x, PLAYER_Y + 128, `🗣️ ${str}`, 30, CSS.ink, {
+      backgroundColor: CSS.yellow,
+      padding: { left: 16, right: 16, top: 10, bottom: 6 },
+    }).setOrigin(0.5).setDepth(55);
+    this.toHud(label);
+    label.x = Phaser.Math.Clamp(label.x, label.width / 2 + 12, W - label.width / 2 - 12);
+    label.setScale(0.4);
+    this.calloutLabel = label;
+    this.tweens.add({ targets: label, scale: 1, duration: 140, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: label, alpha: 0, delay: 750, duration: 200, onComplete: () => label.destroy() });
   }
 
   showBubble(str) {
@@ -252,6 +725,7 @@ export default class GameScene extends Phaser.Scene {
     const g = this.add.graphics();
     artFrame(g, -w / 2, -h / 2, w, h);
     c.add([g, label]);
+    this.toHud(c);
     c.setScale(0);
     this.bubble = c;
     this.tweens.add({ targets: c, scale: 1, duration: 220, ease: 'Back.easeOut' });
@@ -269,7 +743,7 @@ export default class GameScene extends Phaser.Scene {
     g.lineStyle(8, COLORS.cream, 0.4).lineBetween(BAR_X, 112, BAR_X + BAR_W, 112);
     for (const st of STRETCHES) g.fillStyle(COLORS.teal).fillCircle(BAR_X + BAR_W * st.at, 112, 8);
     g.fillStyle(COLORS.magenta).fillCircle(BAR_X + BAR_W, 112, 11);
-    this.marker = this.add.image(BAR_X, 112, 'leguna').setScale(0.2).setDepth(91);
+    this.marker = this.add.image(BAR_X, 104, 'leguna-side').setScale(0.1).setDepth(91);
 
     this.hudTime = text(this, 28, 14, '', 40, CSS.yellow).setDepth(91);
     this.hudFare = text(this, W / 2, 14, '', 40, CSS.cream).setOrigin(0.5, 0).setDepth(91);
@@ -278,6 +752,7 @@ export default class GameScene extends Phaser.Scene {
       setMuted(!isMuted());
       mute.setText(isMuted() ? '🔇' : '🔊');
     });
+    for (const o of [g, this.marker, this.hudTime, this.hudFare, mute]) this.toHud(o);
   }
 
   updateHud(progress) {
@@ -296,30 +771,43 @@ export default class GameScene extends Phaser.Scene {
     this.slow = Math.max(0, this.slow - dt);
 
     const st = STRETCHES[this.stretchIdx];
+    const wasFlooded = this.flooded;
+    this.flooded = !!zoneAt(this.distance, 'flood');
+    if (this.flooded && !wasFlooded) this.fireEvent('zone_flood', { forceMeme: true });
+
     let target = BASE_SPEED * (st.speedBonus ?? 1);
+    if (this.flooded) target *= 0.7;
     if (this.slow > 0) target *= 0.5;
-    if (this.stun > 0 || this.finished) target = 0;
+    if (this.stun > 0 || this.finished || this.braking) target = 0;
     this.speed = this.speed < target
       ? Math.min(target, this.speed + ACCEL * dt)
-      : Math.max(target, this.speed - ACCEL * 2 * dt);
+      : Math.max(target, this.speed - (this.braking ? BRAKE_DECEL : ACCEL * 2) * dt);
+    const brakeTex = this.braking && !this.finished ? 'legunaBrake' : 'leguna';
+    if (this.player.texture.key !== brakeTex) this.player.setTexture(brakeTex);
 
     const dy = this.speed * dt;
     this.distance += dy;
-    this.road.tilePositionY -= dy;
+    this.playerOff = offsetAt(this.distance);
 
-    this.player.angle *= 0.85;
+    this.player.tilt *= 0.85;
     this.player.alpha = this.invuln > 0 && Math.floor(this.invuln * 12) % 2 ? 0.35 : 1;
-    this.player.y = PLAYER_Y + Math.sin(this.time.now / 45) * (this.speed > 0 ? 1.5 : 0.6);
+    this.player.lift = Math.sin(this.time.now / 45) * (this.speed > 0 ? 1.5 : 0.6) + this.hop;
+    if (this.flooded && this.speed > 120 && Math.random() < dt * 3) this.splash(this.player.x, PLAYER_Y + 90);
 
     const progress = Math.min(1, this.distance / ROUTE_LENGTH);
     const next = STRETCHES[this.stretchIdx + 1];
     if (next && progress >= next.at) this.enterStretch(this.stretchIdx + 1);
 
+    while (this.featureIdx < features.length && features[this.featureIdx].d - this.distance <= SPAWN_AHEAD) {
+      this.spawnFeature(features[this.featureIdx++]);
+    }
+    this.updateJunction(dt);
+
     if (!this.finished && this.distance < ROUTE_LENGTH - FINISH_BANNER_LEAD) {
       this.sinceSpawn += dy;
       if (this.sinceSpawn >= this.nextGap) {
         this.sinceSpawn = 0;
-        this.spawn();
+        if (!this.junctionAhead()) this.spawn();
         this.nextGap = Phaser.Math.Between(...STRETCHES[this.stretchIdx].gap);
       }
     }
@@ -332,17 +820,58 @@ export default class GameScene extends Phaser.Scene {
       this.sinceDecor = 0;
       this.spawnDecor();
     }
+    this.sinceBuilding += dy;
+    if (this.sinceBuilding > BUILDING_GAP) {
+      this.sinceBuilding -= BUILDING_GAP;
+      this.spawnBuildings(-160 + this.sinceBuilding);
+    }
+    this.sinceDecal += dy;
+    if (this.sinceDecal > 430) {
+      this.sinceDecal = 0;
+      this.spawnDecal();
+    }
+    this.sinceWires += dy;
+    if (this.sinceWires > 1150) {
+      this.sinceWires = 0;
+      this.makeProp('wires', W / 2 + Phaser.Math.Between(-60, 60), -300, 40, { par: OVERHEAD_PARALLAX });
+    }
 
     for (let i = this.things.length - 1; i >= 0; i--) {
       const o = this.things[i];
-      o.y += (this.speed - o.vy) * dt;
-      if (o.y > H + 260 || o.y < -700) {
+      o.ry += (this.speed * (o.par ?? 1) - o.vy) * dt;
+      if (o.vx) {
+        o.rx += o.vx * dt;
+        // Things moving sideways (pedestrians, cross traffic) count as in a lane only while on the road
+        if (o.kind && !o.colW) o.lane = o.rx > ROAD_X && o.rx < ROAD_X + ROAD_W ? Math.floor((o.rx - ROAD_X) / LANE_W) : -1;
+      }
+      if (o.ry > H + 260 || o.ry < -700 || o.rx < -400 || o.rx > W + 400) {
         o.destroy();
         this.things.splice(i, 1);
         continue;
       }
-      if (o.kind && !o.done && !this.finished) this.collide(o);
+      if (o.kind && !o.done && !this.finished) {
+        const def = KINDS[o.kind];
+        if (def.weave) this.weave(o, dt);
+        this.collide(o);
+        if (!o.done && def.solid) this.checkProximity(o);
+        if (!o.done && def.pass) this.checkPass(o);
+        // The helper spots hazards coming up in our lane
+        if (def.warn && !o.warned && o.lane === this.lane && PLAYER_Y - o.ry < 380 && PLAYER_Y - o.ry > 0) {
+          o.warned = true;
+          this.fireEvent(def.warn, { meme: false });
+        }
+      }
+      this.place(o);
     }
+    this.place(this.player);
+    this.road.streaks = Phaser.Math.Clamp((this.speed - STREAK_FROM) / (STREAK_FULL - STREAK_FROM), 0, 1);
+    this.road.draw();
+    setEngine(this.speed / BASE_SPEED, this.braking && !this.finished);
+
+    // Lean the view into the bend under the leguna, turning with the road like the driver's head
+    const lean = Phaser.Math.Clamp(angleAt(this.distance) * LEAN, -MAX_LEAN, MAX_LEAN);
+    this.lean += (lean - this.lean) * Math.min(1, dt * LEAN_RATE);
+    this.cameras.main.setRotation(-this.lean);
 
     this.updateHud(progress);
     if (!this.finished && progress >= 1) this.finish();
@@ -351,12 +880,11 @@ export default class GameScene extends Phaser.Scene {
   finish() {
     this.finished = true;
     stopMusic();
-    play('sting');
     const best = load('best', null);
     const isBest = best === null || this.elapsed < best;
     if (isBest) save('best', this.elapsed);
-    this.meme(isBest && best !== null ? 'newbest' : 'finish', true);
-    const result = { time: this.elapsed, fare: this.fare, crashes: this.crashes, isBest };
+    this.fireEvent(isBest && best !== null ? 'newbest' : 'finish', { forceMeme: true });
+    const result = { time: this.elapsed, fare: this.fare, crashes: this.crashes, closeCalls: this.closeCalls, fines: this.fines, isBest };
     this.time.delayedCall(1800, () => this.scene.start('Result', result));
   }
 }
