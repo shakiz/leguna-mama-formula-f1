@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import {
   W, H, ROAD_X, ROAD_W, LANES, LANE_W, laneX, PLAYER_Y, HUD_H,
   BASE_SPEED, ACCEL, ROUTE_LENGTH, KINDS, STRETCHES, FARE_PER_PASSENGER, CLOSE_MARGIN, CLOSE_BONUS, COLORS, CSS,
-  BRAKE_DECEL, RED_LIGHT_FINE, JUNCTION, VIP,
+  BRAKE_DECEL, RED_LIGHT_FINE, JUNCTION, TURN, VIP,
 } from '../config.js';
 import { pick, fmtTime, num, t } from '../i18n.js';
 import {
@@ -13,6 +13,7 @@ import { load, save } from '../storage.js';
 import { text, artFrame } from '../ui.js';
 import { buildTrack, offsetAt, angleAt, features, zoneAt } from '../track.js';
 import RoadRenderer from '../road.js';
+import { spawnLandmark, sideTaken, landmarkTick } from '../landmarks.js';
 import { ROOFS } from '../art/textures.js';
 
 const MEME_COOLDOWN = 1800; // ms between non-forced meme popups
@@ -25,10 +26,25 @@ const BAR_X = 40;
 const BAR_W = W - 80;
 // Distance from spawn (y = -120) to the player, so the finish banner arrives as the route ends
 const FINISH_BANNER_LEAD = PLAYER_Y + 120;
+const BANNER_Y = -120;
 const BUILDING_GAP = 205; // rooftops are 220 tall, so neighbours overlap a little like a real street
 const OVERHEAD_PARALLAX = 1.07; // overhead things slide a touch faster than the road, so they read as higher up
 const SPAWN_AHEAD = PLAYER_Y + 320; // route distance ahead of the player at which set pieces are created
 const SPAWN_Y = -200; // row where random traffic appears, just above the screen
+// Spawn rows (SPAWN_Y, BUILDING_Y...) are for the normal view; when the camera zooms out they move up
+// by viewPad(), so nothing pops in at the top of a wider view.
+const BUILDING_Y = -160;
+const DECOR_Y = -140;
+const DECOR_GAP = 240;
+// Turning junctions: everything up to TURN_REACH px along the cross road (both ways) is set up when the
+// junction is, TURN_AHEAD px before it, already in the cross road's frame, so the turn reveals a street
+// that is all there. Moving traffic beyond the junction box fades out (it has turned off) while
+// random spawns are paused for the last SPAWN_PAUSE px (more at a signal, so the light is the focus).
+const TURN_REACH = 2000;
+const TURN_AHEAD = PLAYER_Y + 760;
+const SPAWN_PAUSE = { signal: 2600, police: 1800 };
+const VIP_TURN_GAP = 4500; // no VIP warning starts this close before a turn
+const FADE_MS = 300;
 const FAIR_MARGIN = 60; // px of extra room the spawn check keeps free around each solid, for a lane change
 // Lane changers (bike, "Tesla"): their tail stays at least SWERVE_SAFE px ahead of the leguna's nose for
 // the whole move, in every lane, since the player may be steering into the target lane at that moment.
@@ -63,10 +79,18 @@ const VIP_LEGUNA_LOOK = 260; // extra px it keeps from a leguna that has stopped
 
 const laneOf = (rx) => Phaser.Math.Clamp(Math.floor((rx - ROAD_X) / LANE_W), 0, LANES - 1);
 const nearJunction = (d) => features.some((f) => f.type === 'junction' && Math.abs(d - f.d) < JUNCTION.clear);
+const easeInOut = (u) => 0.5 - 0.5 * Math.cos(Math.PI * Phaser.Math.Clamp(u, 0, 1));
 
 // Everything in the world lives in road coordinates: rx is the sideways position on a straight road
 // (what laneX gives) and ry the screen row. place() bends that onto the screen, so gameplay, lanes and
-// collisions never need to know about curves. Optional extras: tilt (deg) and lift (px) for animations.
+// collisions never need to know about curves. Optional extras: tilt (deg), wob (deg, a wobble on top of
+// tilt) and lift (px) for animations.
+//
+// Turns: the main camera pivots 90° about the leguna (left turn: rotation +90°, which in Phaser's y-down
+// screen space turns the world clockwise, so the cross road on the left swings up to point ahead). At the
+// end every object's road coordinates are rotated about the leguna by the same angle and shifted so the
+// cross road becomes the road (centre line at x = W/2), and the camera goes back to 0 in the same frame.
+// Junctions are drawn symmetrically (road.js), so the road drawing matches too.
 
 function weightedPick(weights) {
   const entries = Object.entries(weights);
@@ -90,6 +114,16 @@ export default class GameScene extends Phaser.Scene {
     this.hudCam = this.cameras.add(0, 0, W, H);
     this.events.on(Phaser.Scenes.Events.ADDED_TO_SCENE, this.toWorld, this);
     this.lean = 0;
+    // Camera framing per stretch (tweened), the turn in progress, and what the camera shows
+    this.view = { zoom: 1, panX: 0 };
+    this.turn = null;
+    this.turnRot = 0;
+    this.turnGrace = 0;
+    this.turns = features.filter((f) => f.type === 'junction' && f.turn);
+    this.turnIdx = 0;
+    this.spawnXf = null;
+    this.cam = { sx: W / 2, sy: PLAYER_Y, px: W / 2, py: PLAYER_Y, z: 1, rot: 0 };
+    this.viewBox = { x0: 0, x1: W, y0: 0, y1: H };
     this.road = new RoadRenderer(this, this);
     this.things = [];
     this.lane = 1;
@@ -105,8 +139,6 @@ export default class GameScene extends Phaser.Scene {
     this.slow = 0;
     this.sinceSpawn = 0;
     this.nextGap = 700;
-    this.sinceDecor = 0;
-    this.sinceBuilding = 0;
     this.sinceDecal = 0;
     this.sinceWires = 600;
     this.featureIdx = 0;
@@ -132,9 +164,12 @@ export default class GameScene extends Phaser.Scene {
     this.player.ry = PLAYER_Y;
     this.player.tilt = 0;
 
-    // Fill the street before the first frame so the roadside isn't empty at the start
-    for (let y = H + 110; y > -160; y -= BUILDING_GAP) this.spawnBuildings(y);
-    for (let y = H + 60; y > -140; y -= 240) this.spawnDecor(y);
+    // Fill the street before the first frame so the roadside isn't empty at the start. buildRow and
+    // decorRow are the rows of the last rooftops / roadside decor spawned; they scroll with the road.
+    for (this.buildRow = H + 110; this.buildRow - BUILDING_GAP > BUILDING_Y; this.buildRow -= BUILDING_GAP) this.spawnBuildings(this.buildRow);
+    this.spawnBuildings(this.buildRow);
+    for (this.decorRow = H + 60; this.decorRow - DECOR_GAP > DECOR_Y; this.decorRow -= DECOR_GAP) this.spawnDecor(this.decorRow);
+    this.spawnDecor(this.decorRow);
 
     this.createHud();
     this.setupInput();
@@ -233,7 +268,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   steer(dir) {
-    if (this.finished) return;
+    if (this.finished || this.steerLocked()) return;
     const to = Phaser.Math.Clamp(this.lane + dir, 0, LANES - 1);
     if (to === this.lane) return;
     this.checkNearMiss(this.lane, dir);
@@ -305,7 +340,63 @@ export default class GameScene extends Phaser.Scene {
   place(o) {
     o.x = o.rx + this.offAt(o.ry);
     o.y = o.ry + (o.lift ?? 0);
-    o.rotation = angleAt(this.distAt(o.ry)) + Phaser.Math.DegToRad(o.tilt ?? 0);
+    o.rotation = angleAt(this.distAt(o.ry)) + Phaser.Math.DegToRad((o.tilt ?? 0) + (o.wob ?? 0) + (o.frameTilt ?? 0));
+  }
+
+  // How far the spawn rows move up for the current zoom: the top of the view is at -viewPad()
+  viewPad() {
+    return PLAYER_Y / this.view.zoom - PLAYER_Y;
+  }
+
+  spawnY() {
+    return SPAWN_Y - this.viewPad();
+  }
+
+  // Where world point (x, y) is on screen (for HUD things that point at the world)
+  toScreen(x, y) {
+    const c = this.cam;
+    const dx = (x - c.px) * c.z;
+    const dy = (y - c.py) * c.z;
+    const cos = Math.cos(c.rot);
+    const sin = Math.sin(c.rot);
+    return { x: c.sx + cos * dx - sin * dy, y: c.sy + sin * dx + cos * dy };
+  }
+
+  // The main camera: zoom and pan from the stretch's `view`, rotation from the turn (minus the lean),
+  // all pivoting about the leguna. The origin is the leguna's spot on screen and the scroll puts the
+  // leguna there, so rotating and zooming never move it. Also works out the world area in view, for
+  // the road renderer.
+  updateCamera() {
+    const cam = this.cameras.main;
+    const z = this.view.zoom;
+    const screenX = (rx) => W / 2 + z * (rx - this.view.panX - W / 2);
+    let sx = screenX(this.player.x);
+    const t = this.turn;
+    // Through a turn the leguna glides to where it will sit on the new road (its middle lane)
+    if (t) sx = Phaser.Math.Linear(screenX(t.L), screenX(W / 2), easeInOut(t.t / TURN.pivot));
+    const rot = this.turnRot - this.lean;
+    cam.setZoom(z).setRotation(rot).setOrigin(sx / W, PLAYER_Y / H).setScroll(this.player.x - sx, 0);
+    Object.assign(this.cam, { sx, sy: PLAYER_Y, px: this.player.x, py: PLAYER_Y, z, rot });
+    // The screen's corners back in the world (inverse of toScreen), plus a margin for camera shake
+    const cos = Math.cos(rot);
+    const sin = Math.sin(rot);
+    const b = this.viewBox;
+    b.x0 = b.y0 = Infinity;
+    b.x1 = b.y1 = -Infinity;
+    for (const [cx, cy] of [[0, 0], [W, 0], [0, H], [W, H]]) {
+      const dx = (cx - sx) / z;
+      const dy = (cy - PLAYER_Y) / z;
+      const wx = this.player.x + cos * dx + sin * dy;
+      const wy = PLAYER_Y - sin * dx + cos * dy;
+      b.x0 = Math.min(b.x0, wx);
+      b.x1 = Math.max(b.x1, wx);
+      b.y0 = Math.min(b.y0, wy);
+      b.y1 = Math.max(b.y1, wy);
+    }
+    b.x0 -= 40;
+    b.x1 += 40;
+    b.y0 -= 40;
+    b.y1 += 40;
   }
 
   // --- world -------------------------------------------------------------
@@ -314,6 +405,10 @@ export default class GameScene extends Phaser.Scene {
     this.stretchIdx = i;
     const st = STRETCHES[i];
     setAmbience(st.ambience);
+    // The stretch's camera framing eases in
+    const view = st.view ?? { zoom: 1, panX: 0 };
+    this.viewTween?.stop();
+    this.viewTween = this.tweens.add({ targets: this.view, zoom: view.zoom, panX: view.panX, duration: i === 0 ? 1 : 1600, ease: 'Sine.easeInOut' });
     this.spawnBanner(pick(st.name), i === 0 ? COLORS.green : COLORS.teal);
     if (i > 0) this.fireEvent(`stretch_${st.id}`, { forceMeme: true });
     // Open road with a speed bonus: "খেলা হবে!" once the stretch's own sting and popup have had their moment
@@ -324,7 +419,7 @@ export default class GameScene extends Phaser.Scene {
     // Built around the road's centre so it pivots correctly on bends
     const c = this.add.container(0, 0).setDepth(30);
     c.rx = W / 2;
-    c.ry = -120;
+    c.ry = BANNER_Y - this.viewPad();
     const g = this.add.graphics();
     const x = ROAD_X - 50 - W / 2;
     const w = ROAD_W + 100;
@@ -350,7 +445,7 @@ export default class GameScene extends Phaser.Scene {
     const laneVy = (l) => this.things.reduce((v, o) => (o.kind && !o.overtake && this.inLane(o, l) ? Math.max(v, o.vy) : v), vy);
     let lane = forceLane;
     if (lane === undefined) {
-      const nearTop = this.things.filter((o) => o.kind && o.ry < 220);
+      const nearTop = this.things.filter((o) => o.kind && !o.newFrame && o.ry < this.spawnY() + 420);
       let free = [0, 1, 2].filter((l) => !nearTop.some((o) => this.inLane(o, l)));
       if (!free.length) return;
       // Always leave at least one lane without a solid obstacle
@@ -366,9 +461,9 @@ export default class GameScene extends Phaser.Scene {
       }
       lane = Phaser.Utils.Array.GetRandom(free);
     }
-    const img = this.makeThing(kind, laneX(lane), SPAWN_Y, lane);
+    const img = this.makeThing(kind, laneX(lane), this.spawnY(), lane);
     img.vy = laneVy(lane);
-    if (kind === 'passenger') this.tweens.add({ targets: img, tilt: 10, duration: 260, yoyo: true, repeat: -1 });
+    if (kind === 'passenger') this.tweens.add({ targets: img, wob: { from: 0, to: 10 }, duration: 260, yoyo: true, repeat: -1 });
     if (kind === 'cow') img.tilt = Phaser.Math.Between(-20, 20);
     if (def.weave) {
       img.baseVy = img.vy;
@@ -389,7 +484,7 @@ export default class GameScene extends Phaser.Scene {
 
   // Would a new solid in `lane` (at row ry; `self` is a lane changer moving over) be in the player's row
   // at a moment when both other lanes are too?
-  closesRoad(lane, h, vy, ry = SPAWN_Y, self = null) {
+  closesRoad(lane, h, vy, ry = this.spawnY(), self = null) {
     const win = this.blockWindow(ry, h, vy);
     if (!win) return false;
     // While a VIP is on its way, nothing new may reach the leguna's row as it passes: dodging the VIP
@@ -445,7 +540,7 @@ export default class GameScene extends Phaser.Scene {
     const vy = o.baseVy;
     const cruise = BASE_SPEED * (STRETCHES[this.stretchIdx].speedBonus ?? 1);
     // On screen (the HUD may still cover its nose), and still SWERVE_SAFE ahead of the leguna once the move is done
-    if (o.ry < 0) return false;
+    if (o.ry < -this.viewPad()) return false;
     // Never cut into a VIP's lane while it's on its way: it would have to queue behind
     if (to === this.vipLane()) return false;
     const drift = (Math.max(this.speed, cruise) - vy) * ((w.dur + 50) / 1000); // +50 ms for frame jitter
@@ -504,6 +599,7 @@ export default class GameScene extends Phaser.Scene {
     const def = KINDS[kind];
     const img = this.add.image(0, 0, tex ?? def.tex).setDepth(def.depth ?? (kind === 'puddle' ? 5 : 15));
     Object.assign(img, { rx, ry, kind, lane, done: false, vy: def.vy * Phaser.Math.FloatBetween(0.85, 1.15) });
+    this.spawnXf?.(img);
     this.place(img);
     this.things.push(img);
     return img;
@@ -513,6 +609,7 @@ export default class GameScene extends Phaser.Scene {
   makeProp(tex, rx, ry, depth, extra = {}) {
     const img = this.add.image(0, 0, tex).setDepth(depth);
     Object.assign(img, { rx, ry, vy: 0 }, extra);
+    this.spawnXf?.(img);
     this.place(img);
     this.things.push(img);
     return img;
@@ -520,6 +617,8 @@ export default class GameScene extends Phaser.Scene {
 
   // --- set pieces ----------------------------------------------------------
 
+  // Features are created SPAWN_AHEAD px before they come into view (TURN_AHEAD for a turning junction,
+  // which also sets up the cross road beyond it). Landmark types go to src/landmarks.js.
   spawnFeature(f) {
     const ry = this.yOf(f.d);
     if (f.type === 'speedbreaker') {
@@ -532,7 +631,53 @@ export default class GameScene extends Phaser.Scene {
     } else if (f.type === 'bunting') {
       this.makeProp('bunting', W / 2, ry, 40, { par: OVERHEAD_PARALLAX });
     } else if (f.type === 'junction') {
-      this.setupJunction(f.d);
+      this.setupJunction(f);
+    } else {
+      spawnLandmark(this, f, ry);
+    }
+  }
+
+  // Run fn as if the turn at junction tj had already happened: makeProp() / makeThing() take road
+  // coordinates on the cross road (yOf() and distAt() use its route distances), and place the object
+  // where that spot is now, so the turn's snap carries it onto the new road exactly. Until then it is
+  // `newFrame`: it moves with the ground but has no gameplay, and frameTilt turns it to lie along the
+  // cross road. The mapping only depends on the junction, not on the lane the leguna turns from.
+  inNewFrame(tj, fn) {
+    const s = tj.turn === 'left' ? 1 : -1;
+    const yJ = this.yOf(tj.d);
+    const distance = this.distance;
+    this.realDistance = distance;
+    this.distance = tj.d;
+    this.spawnXf = (o) => {
+      const u = o.rx - W / 2;
+      const v = o.ry - PLAYER_Y;
+      o.rx = W / 2 + s * v;
+      o.ry = yJ - s * u;
+      o.frameTilt = -s * 90;
+      o.newFrame = true;
+      if (o.par) {
+        o.newPar = o.par;
+        o.par = 1;
+      }
+    };
+    try {
+      fn();
+    } finally {
+      this.distance = distance;
+      this.spawnXf = null;
+    }
+  }
+
+  // Undo inNewFrame() for a moment
+  inOldFrame(fn) {
+    const { spawnXf, distance } = this;
+    this.spawnXf = null;
+    this.distance = this.realDistance;
+    try {
+      fn();
+    } finally {
+      this.spawnXf = spawnXf;
+      this.distance = distance;
     }
   }
 
@@ -547,22 +692,46 @@ export default class GameScene extends Phaser.Scene {
     this.fireEvent('spawn_pedestrian', { meme: false });
   }
 
-  setupJunction(dj) {
+  // A junction: a signal (`signal: true`: lamps, red light, cross traffic) or a traffic police umbrella
+  // directing it. A turning one also gets its cross road's street furniture now, in the new frame: the
+  // rooftops and roadside decor along both arms, and every set piece in the first TURN_REACH px after it.
+  setupJunction(f) {
     const J = JUNCTION;
-    const signalRy = this.yOf(dj - J.zebra[1] - 40);
-    const j = { dj, stopD: dj - J.stopLine, state: 'green', timer: 0, waited: 0, cycled: false, sinceCross: 1, dir: 1, lamps: [] };
-    for (const left of [true, false]) {
-      const rx = left ? ROAD_X - 44 : ROAD_X + ROAD_W + 44;
-      const head = this.makeProp('signal', rx, signalRy, 41);
-      head.setFlipX(!left);
-      const lamp = this.add.circle(0, 0, 8, LAMP.green[2]).setDepth(42);
-      Object.assign(lamp, { rx, ry: signalRy, vy: 0, head, side: left ? 1 : -1 });
-      this.things.push(lamp);
-      j.lamps.push(lamp);
+    const dj = f.d;
+    const j = {
+      dj, f, signal: !!f.signal, stopD: dj - J.stopLine, state: 'green', timer: 0, waited: 0, cycled: !f.signal,
+      sinceCross: 1, dir: 1, lamps: [],
+    };
+    if (j.signal) {
+      const signalRy = this.yOf(dj - J.zebra[1] - 40);
+      for (const left of [true, false]) {
+        const rx = left ? ROAD_X - 44 : ROAD_X + ROAD_W + 44;
+        const head = this.makeProp('signal', rx, signalRy, 41);
+        head.setFlipX(!left);
+        const lamp = this.add.circle(0, 0, 8, LAMP.green[2]).setDepth(42);
+        Object.assign(lamp, { rx, ry: signalRy, vy: 0, head, side: left ? 1 : -1 });
+        this.things.push(lamp);
+        j.lamps.push(lamp);
+      }
     }
+    // The traffic police's umbrella on the far corner
     this.makeProp('police', ROAD_X + ROAD_W + 64, this.yOf(dj + J.halfWidth + 80), 14);
     this.junction = j;
-    this.setSignal('green');
+    if (j.signal) this.setSignal('green');
+    if (!f.turn) return;
+    this.inNewFrame(f, () => {
+      let d = dj - TURN_REACH;
+      for (; d <= dj + TURN_REACH; d += BUILDING_GAP) this.spawnBuildings(this.yOf(d));
+      j.buildD = d - BUILDING_GAP;
+      for (d = dj - TURN_REACH; d <= dj + TURN_REACH; d += DECOR_GAP) this.spawnDecor(this.yOf(d));
+      j.decorD = d - DECOR_GAP;
+      // Set pieces just past the junction (the ones at the junction itself stay in our frame)
+      while (this.featureIdx < features.length && features[this.featureIdx].d <= dj + TURN_REACH) {
+        const g = features[this.featureIdx++];
+        if (g.d > dj) this.spawnFeature(g);
+        else this.inOldFrame(() => this.spawnFeature(g));
+      }
+    });
   }
 
   setSignal(state) {
@@ -571,11 +740,12 @@ export default class GameScene extends Phaser.Scene {
     for (const lamp of j.lamps) lamp.setFillStyle(LAMP[state][2]);
   }
 
-  // The Asad Gate signal: turns as the leguna approaches, holds red until it has waited at the line
-  // (or the light times out), and fines anyone who crosses the stop line on red
+  // The signal at the end of Manik Mia Avenue: turns as the leguna approaches, holds red until it has
+  // waited at the line (or the light times out), and fines anyone who crosses the stop line on red.
+  // Police-directed junctions have none of this.
   updateJunction(dt) {
     const j = this.junction;
-    if (!j) return;
+    if (!j || !j.signal || this.turn) return;
     for (const lamp of j.lamps) {
       const [dx, dy] = LAMP[j.state];
       lamp.rx = lamp.head.rx + lamp.side * dx;
@@ -621,14 +791,15 @@ export default class GameScene extends Phaser.Scene {
       this.fireEvent('red_light', { forceMeme: true });
     }
     j.prevToStop = toStop;
-    if (toStop < -2000) this.junction = null;
+    if (toStop < -2000 && !j.f.turn) this.junction = null;
   }
 
-  // Traffic crossing the junction on red; driving on the left, so eastbound uses the far lane
+  // Traffic crossing the junction on red, in the cross road's outer lanes; driving on the left, so
+  // eastbound uses the far side. It starts well off the side of even the zoomed-out view.
   spawnCrossTraffic(j) {
     const dir = (j.dir = -j.dir);
     const kind = Phaser.Utils.Array.GetRandom(['car', 'car', 'cng', 'bus', 'rickshaw']);
-    const o = this.makeThing(kind, dir > 0 ? -260 : W + 260, this.yOf(j.dj + dir * 48), -1);
+    const o = this.makeThing(kind, W / 2 - dir * 900, this.yOf(j.dj + dir * LANE_W), -1);
     o.vy = 0;
     o.vx = dir * (kind === 'rickshaw' ? 170 : 360);
     o.tilt = dir * 90;
@@ -636,10 +807,136 @@ export default class GameScene extends Phaser.Scene {
     o.colH = o.displayWidth;
   }
 
-  // Random spawns pause while the signal is ahead, so the junction is about the light and cross traffic
+  // Random spawns pause on the approach to a junction, so it's about the light (or the turn) and the
+  // traffic already there; after a turn they resume on the new road
   junctionAhead() {
     const j = this.junction;
-    return j && !j.cycled && j.dj - this.distance < 2600;
+    if (!j) return false;
+    if (j.f.turn) return j.dj - this.distance < (j.signal ? SPAWN_PAUSE.signal : SPAWN_PAUSE.police);
+    return !j.cycled && j.dj - this.distance < SPAWN_PAUSE.signal;
+  }
+
+  // --- turns ---------------------------------------------------------------
+
+  // The next turning junction and how far ahead its centre is
+  nextTurn() {
+    const tj = this.turns[this.turnIdx];
+    return tj ? [tj, tj.d - this.distance] : [null, Infinity];
+  }
+
+  steerLocked() {
+    const [tj, to] = this.nextTurn();
+    return !!this.turn || (!!tj && to < TURN.lockFrom);
+  }
+
+  // Fade a vehicle out and drop it (it has turned off, or can't be where the turn would put it)
+  vanish(o) {
+    if (o.fading) return;
+    o.done = true;
+    o.fading = true;
+    this.tweens.killTweensOf(o);
+    this.tweens.add({
+      targets: o,
+      alpha: 0,
+      duration: FADE_MS,
+      onComplete: () => {
+        const i = this.things.indexOf(o);
+        if (i >= 0) this.things.splice(i, 1);
+        o.destroy();
+      },
+    });
+  }
+
+  // Approaching a turn: moving traffic that has gone on past the junction box fades away (it took
+  // another road)
+  approachTurn(tj) {
+    const beyond = this.yOf(tj.d) - JUNCTION.halfWidth - 60;
+    for (const o of this.things) {
+      if (o.kind && !o.newFrame && !o.done && (o.vy || o.vx) && !o.overtake && o.ry < beyond) this.vanish(o);
+    }
+  }
+
+  // At the junction's centre: hold the leguna there and pivot the view 90° about it
+  startTurn(tj) {
+    // Land exactly on the centre row (a few px of overshoot from the frame step)
+    const over = this.distance - tj.d;
+    this.distance = tj.d;
+    for (const o of this.things) o.ry -= over;
+    this.steerTween?.stop();
+    this.player.rx = laneX(this.lane);
+    this.player.tilt = 0;
+    this.place(this.player);
+    // Anything moving would end up driving sideways on the new road: cross traffic, the VIP,
+    // whatever is in the box or behind us
+    for (const o of this.things) if (o.kind && !o.newFrame && (o.vy || o.vx || o.overtake || o.colW)) this.vanish(o);
+    if (this.vip) {
+      this.vip.warn?.destroy();
+      this.vip = null;
+      this.sinceVip = -VIP.roll;
+    }
+    this.vipPending = null;
+    this.turn = { j: tj, sign: tj.turn === 'left' ? 1 : -1, L: this.player.x, t: 0 };
+    this.fireEvent(`turn_${tj.turn}`, { forceMeme: true });
+  }
+
+  updateTurn(dt) {
+    const tr = this.turn;
+    tr.t += dt;
+    this.turnRot = tr.sign * (Math.PI / 2) * easeInOut(tr.t / TURN.pivot);
+    if (tr.t >= TURN.pivot) this.snapTurn();
+  }
+
+  // The end of the pivot: rotate the world's road coordinates about the leguna by the same 90° and put
+  // the cross road where the road is (centre line at x = W / 2, the leguna in its middle lane), the
+  // junction at the same route distance; the camera goes back to 0 in the same frame, so nothing moves
+  // on screen. Junctions are drawn the same from every arm, so the road drawing matches as well.
+  snapTurn() {
+    const { sign: s, L, j: tj } = this.turn;
+    for (const o of this.things) {
+      if (o.fading) {
+        o.destroy();
+        continue;
+      }
+      this.tweens.killTweensOf(o);
+      const dx = o.rx - L;
+      const dy = o.ry - PLAYER_Y;
+      o.rx = W / 2 - s * dy;
+      o.ry = PLAYER_Y + s * dx;
+      if (o.newFrame) {
+        // Set up for the new road: now it simply is on it
+        o.newFrame = false;
+        o.frameTilt = 0;
+        if (o.newPar) o.par = o.newPar;
+        continue;
+      }
+      o.tilt = (o.tilt ?? 0) + s * 90;
+      o.wob = 0;
+      o.par = 1;
+      o.vx = 0;
+      if (o.kind) {
+        // Whatever stands still stays where it was; off our new road it's just scenery
+        const onRoad = o.rx > ROAD_X && o.rx < ROAD_X + ROAD_W;
+        o.lane = onRoad ? laneOf(o.rx) : -1;
+        if (!onRoad || KINDS[o.kind].span) o.done = true;
+      }
+    }
+    this.things = this.things.filter((o) => o.scene);
+    this.distance = tj.d + s * (W / 2 - L);
+    this.playerOff = offsetAt(this.distance);
+    this.lane = 1;
+    this.player.rx = W / 2;
+    this.place(this.player);
+    // The cross road's furniture was set up to TURN_REACH px ahead: carry on spawning from there
+    const j = this.junction;
+    if (j?.dj === tj.d && j.buildD !== undefined) {
+      this.buildRow = this.yOf(j.buildD);
+      this.decorRow = this.yOf(j.decorD);
+    }
+    this.junction = null;
+    this.turn = null;
+    this.turnRot = 0;
+    this.turnIdx++;
+    this.turnGrace = 1.5;
   }
 
   // --- VIP -----------------------------------------------------------------
@@ -736,7 +1033,9 @@ export default class GameScene extends Phaser.Scene {
     const v = this.vip;
     if (!v) {
       const cruise = BASE_SPEED * (STRETCHES[this.stretchIdx].speedBonus ?? 1);
-      const late = this.finished || this.distance > ROUTE_LENGTH - FINISH_BANNER_LEAD - 2000;
+      // Nor in the run-up to a turn: it would be faded out at the junction
+      const late = this.finished || this.distance > ROUTE_LENGTH - FINISH_BANNER_LEAD - 2000
+        || this.nextTurn()[1] < VIP_TURN_GAP || !!this.turn;
       // Not around the signal, or while the leguna is crawling (it would arrive with no time to react)
       const ok = !late && !this.junction && this.speed > cruise * 0.7;
       const p = this.vipPending;
@@ -773,7 +1072,7 @@ export default class GameScene extends Phaser.Scene {
     }
     const flash = Math.floor(v.t * 7) % 2;
     if (v.warn) {
-      v.warn.x = laneX(v.lane) + this.offAt(v.warn.y);
+      v.warn.x = this.toScreen(laneX(v.lane) + this.offAt(PLAYER_Y), PLAYER_Y).x;
       v.warn.red.visible = !flash;
       v.warn.blue.visible = !!flash;
       v.warn.setScale(1 + 0.08 * Math.sin(v.t * 14));
@@ -792,7 +1091,7 @@ export default class GameScene extends Phaser.Scene {
       v.warn?.destroy();
       return;
     }
-    if (car.ry < VIP_GONE - car.displayHeight / 2 || car.ry > H + VIP.spawnBelow + 60) {
+    if (car.ry < VIP_GONE - this.viewPad() - car.displayHeight / 2 || car.ry > H + VIP.spawnBelow + 60) {
       // Driven off the top, or dropped back off the bottom after giving up: done
       car.destroy();
       this.things.splice(this.things.indexOf(car), 1);
@@ -880,38 +1179,37 @@ export default class GameScene extends Phaser.Scene {
     car.vy = gap < 40 ? Math.min(car.vy, ahead.vy) : Math.max(ahead.vy, car.vy - VIP_BRAKE * dt);
   }
 
-  spawnDecor(ry = -140) {
+  // Trees and stalls on the pavements (not where a landmark has the roadside)
+  spawnDecor(ry = DECOR_Y - this.viewPad()) {
     const d = this.distAt(ry);
     if (nearJunction(d)) return;
     const left = Math.random() < 0.5;
+    if (sideTaken(d)[left ? 'left' : 'right']) return;
     if (!left && zoneAt(d, 'busstand')) return;
-    // The avenue's left side is a planted median: trees only
-    const tex = Math.random() < 0.6 || (left && zoneAt(d, 'avenue')) ? 'tree' : 'stall';
+    const tex = Math.random() < 0.6 ? 'tree' : 'stall';
     const img = this.makeProp(tex, left ? ROAD_X / 2 - 6 : W - ROAD_X / 2 + 6, ry, 4);
     if (tex === 'stall') img.setFlipX(!left);
   }
 
-  // A rooftop on each side beyond the pavement; mostly off-screen until a bend slides the road over.
-  // Lawns along the avenue, parked buses at the bus stand, and nothing on the junction's cross road.
-  spawnBuildings(ry = -160) {
+  // A rooftop on each side beyond the pavement (where no landmark stands), parked buses at the bus
+  // stand, and nothing on a junction's cross road
+  spawnBuildings(ry) {
     const d = this.distAt(ry);
     if (nearJunction(d)) return;
-    if (zoneAt(d, 'avenue')) {
-      if (Math.random() < 0.6) this.makeProp('tree', -Phaser.Math.Between(40, 160), ry, 3);
-    } else {
-      this.makeProp(Phaser.Utils.Array.GetRandom(ROOFS), -102, ry, 3, { flipX: Math.random() < 0.5 });
-    }
+    const taken = sideTaken(d);
+    if (!taken.left) this.makeProp(Phaser.Utils.Array.GetRandom(ROOFS), -102, ry, 3, { flipX: Math.random() < 0.5 });
     if (zoneAt(d, 'busstand')) {
       this.makeProp('bus', W + 80, ry, 3, { tilt: Math.random() < 0.5 ? 90 : -90 });
-    } else {
+    } else if (!taken.right) {
       this.makeProp(Phaser.Utils.Array.GetRandom(ROOFS), W + 102, ry, 3, { flipX: Math.random() < 0.5 });
     }
   }
 
   spawnDecal() {
-    if (nearJunction(this.distAt(-150))) return;
+    const ry = -150 - this.viewPad();
+    if (nearJunction(this.distAt(ry))) return;
     const tex = Phaser.Utils.Array.GetRandom(['patch', 'crack', 'oil', 'crack']);
-    this.makeProp(tex, Phaser.Math.Between(ROAD_X + 60, ROAD_X + ROAD_W - 60), -150, 1, { tilt: Phaser.Math.Between(0, 1) * 180 });
+    this.makeProp(tex, Phaser.Math.Between(ROAD_X + 60, ROAD_X + ROAD_W - 60), ry, 1, { tilt: Phaser.Math.Between(0, 1) * 180 });
   }
 
   // --- collisions ---------------------------------------------------------
@@ -967,7 +1265,9 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  // (x, y) is a point in the world; the text floats up from where that is on screen
   floatText(str, x, y, color) {
+    ({ x, y } = this.toScreen(x, y));
     const label = this.toHud(text(this, x, y, str, 40, color, { stroke: CSS.ink, strokeThickness: 6 }).setOrigin(0.5).setDepth(50));
     this.tweens.add({ targets: label, y: y - 110, alpha: 0, duration: 800, onComplete: () => label.destroy() });
   }
@@ -1026,7 +1326,7 @@ export default class GameScene extends Phaser.Scene {
   // The helper hanging off the back of the leguna shouts a warning
   callout(str) {
     this.calloutLabel?.destroy();
-    const label = text(this, this.player.x, PLAYER_Y + 128, `🗣️ ${str}`, 30, CSS.ink, {
+    const label = text(this, this.cam.sx, PLAYER_Y + 128, `🗣️ ${str}`, 30, CSS.ink, {
       backgroundColor: CSS.yellow,
       padding: { left: 16, right: 16, top: 10, bottom: 6 },
     }).setOrigin(0.5).setDepth(55);
@@ -1111,22 +1411,37 @@ export default class GameScene extends Phaser.Scene {
     this.stun = Math.max(0, this.stun - dt);
     this.invuln = Math.max(0, this.invuln - dt);
     this.slow = Math.max(0, this.slow - dt);
+    this.turnGrace = Math.max(0, this.turnGrace - dt);
 
     const st = STRETCHES[this.stretchIdx];
     const wasFlooded = this.flooded;
     this.flooded = !!zoneAt(this.distance, 'flood');
     if (this.flooded && !wasFlooded) this.fireEvent('zone_flood', { forceMeme: true });
 
-    let target = BASE_SPEED * (st.speedBonus ?? 1);
+    // A turn ahead: slow down for it along a braking curve that reaches TURN.speed TURN.slowFrom px
+    // before the centre; at the centre, the pivot (the leguna holds its speed but doesn't move on)
+    if (this.turn) this.updateTurn(dt);
+    const [tj, toTurn] = this.nextTurn();
+    if (!this.turn && tj && toTurn <= 0) this.startTurn(tj);
+    const pivoting = !!this.turn;
+    const turning = pivoting || toTurn < TURN_AHEAD || this.turnGrace > 0;
+    if (tj && !pivoting && toTurn < TURN_AHEAD) this.approachTurn(tj);
+
+    const cruise = BASE_SPEED * (st.speedBonus ?? 1);
+    let target = cruise;
     if (this.flooded) target *= 0.7;
     if (this.slow > 0) target *= 0.5;
+    if (tj) target = Math.min(target, Math.sqrt(TURN.speed ** 2 + 4 * ACCEL * Math.max(0, toTurn - TURN.slowFrom)));
     if (this.stun > 0 || this.finished || this.braking) target = 0;
-    this.speed = this.speed < target
-      ? Math.min(target, this.speed + ACCEL * dt)
-      : Math.max(target, this.speed - (this.braking ? BRAKE_DECEL : ACCEL * 2) * dt);
-    // Back up to speed after a real slowdown (crash, brake, red light, a crawl through the flood)
-    if (this.flooded || this.speed < BASE_SPEED * (st.speedBonus ?? 1) * SLOWED) {
-      if (this.cruised) this.slowedDown = true;
+    if (!pivoting) {
+      this.speed = this.speed < target
+        ? Math.min(target, this.speed + ACCEL * dt)
+        : Math.max(target, this.speed - (this.braking ? BRAKE_DECEL : ACCEL * 2) * dt);
+    }
+    // Back up to speed after a real slowdown (crash, brake, red light, a crawl through the flood); slowing
+    // for a turn doesn't count, but a red light just before one does
+    if (this.flooded || this.speed < cruise * SLOWED) {
+      if (this.cruised && (!turning || this.speed < 15)) this.slowedDown = true;
     } else if (target > 0 && this.slow === 0 && this.speed >= target * CRUISING) {
       if (this.slowedDown) this.speedUp();
       this.slowedDown = false;
@@ -1135,7 +1450,8 @@ export default class GameScene extends Phaser.Scene {
     const brakeTex = this.braking && !this.finished ? 'legunaBrake' : 'leguna';
     if (this.player.texture.key !== brakeTex) this.player.setTexture(brakeTex);
 
-    const dy = this.speed * dt;
+    const moving = pivoting ? 0 : this.speed;
+    const dy = moving * dt;
     this.distance += dy;
     this.playerOff = offsetAt(this.distance);
 
@@ -1148,33 +1464,41 @@ export default class GameScene extends Phaser.Scene {
     const next = STRETCHES[this.stretchIdx + 1];
     if (next && progress >= next.at) this.enterStretch(this.stretchIdx + 1);
 
-    while (this.featureIdx < features.length && features[this.featureIdx].d - this.distance <= SPAWN_AHEAD) {
-      this.spawnFeature(features[this.featureIdx++]);
+    const pad = this.viewPad();
+    while (this.featureIdx < features.length) {
+      const f = features[this.featureIdx];
+      if (f.d - this.distance > (f.type === 'junction' && f.turn ? TURN_AHEAD : SPAWN_AHEAD) + pad) break;
+      this.featureIdx++;
+      this.spawnFeature(f);
     }
     this.updateJunction(dt);
     this.updateVip(dt, dy);
+    landmarkTick(this, dy);
 
-    if (!this.finished && this.distance < ROUTE_LENGTH - FINISH_BANNER_LEAD) {
+    const finishLead = FINISH_BANNER_LEAD + pad;
+    if (!this.finished && this.distance < ROUTE_LENGTH - finishLead) {
       this.sinceSpawn += dy;
       if (this.sinceSpawn >= this.nextGap) {
         this.sinceSpawn = 0;
-        if (!this.junctionAhead()) this.spawn();
+        if (!this.junctionAhead() && !pivoting) this.spawn();
         this.nextGap = Phaser.Math.Between(...STRETCHES[this.stretchIdx].gap);
       }
     }
-    if (!this.finishBanner && this.distance >= ROUTE_LENGTH - FINISH_BANNER_LEAD) {
+    if (!this.finishBanner && this.distance >= ROUTE_LENGTH - finishLead) {
       this.finishBanner = true;
       this.spawnBanner(`🏁 ${pick(STRETCHES[STRETCHES.length - 1].name)}`, COLORS.magenta);
     }
-    this.sinceDecor += dy;
-    if (this.sinceDecor > 240) {
-      this.sinceDecor = 0;
-      this.spawnDecor();
+    // Rooftops and roadside decor in rows that scroll with the road; when the view widens, the rows
+    // above fill in at once
+    this.buildRow += dy;
+    while (this.buildRow - BUILDING_GAP >= BUILDING_Y - pad) {
+      this.buildRow -= BUILDING_GAP;
+      this.spawnBuildings(this.buildRow);
     }
-    this.sinceBuilding += dy;
-    if (this.sinceBuilding > BUILDING_GAP) {
-      this.sinceBuilding -= BUILDING_GAP;
-      this.spawnBuildings(-160 + this.sinceBuilding);
+    this.decorRow += dy;
+    while (this.decorRow - DECOR_GAP >= DECOR_Y - pad) {
+      this.decorRow -= DECOR_GAP;
+      this.spawnDecor(this.decorRow);
     }
     this.sinceDecal += dy;
     if (this.sinceDecal > 430) {
@@ -1184,23 +1508,31 @@ export default class GameScene extends Phaser.Scene {
     this.sinceWires += dy;
     if (this.sinceWires > 1150) {
       this.sinceWires = 0;
-      this.makeProp('wires', W / 2 + Phaser.Math.Between(-60, 60), -300, 40, { par: OVERHEAD_PARALLAX });
+      if (!nearJunction(this.distAt(-300 - pad) - 400)) {
+        this.makeProp('wires', W / 2 + Phaser.Math.Between(-60, 60), -300 - pad, 40, { par: OVERHEAD_PARALLAX });
+      }
     }
 
     for (let i = this.things.length - 1; i >= 0; i--) {
       const o = this.things[i];
-      o.ry += (this.speed * (o.par ?? 1) - o.vy) * dt;
-      if (o.vx) {
-        o.rx += o.vx * dt;
-        // Things moving sideways (pedestrians, cross traffic) count as in a lane only while on the road
-        if (o.kind && !o.colW) o.lane = o.rx > ROAD_X && o.rx < ROAD_X + ROAD_W ? Math.floor((o.rx - ROAD_X) / LANE_W) : -1;
+      if (o.newFrame) {
+        // Set up for after the turn: it stays put on the ground until then
+        o.ry += moving * dt;
+      } else {
+        o.ry += (moving * (o.par ?? 1) - o.vy) * dt;
+        if (o.vx) {
+          o.rx += o.vx * dt;
+          // Things moving sideways (pedestrians, cross traffic) count as in a lane only while on the road
+          if (o.kind && !o.colW) o.lane = o.rx > ROAD_X && o.rx < ROAD_X + ROAD_W ? Math.floor((o.rx - ROAD_X) / LANE_W) : -1;
+        }
       }
-      if (o.ry > H + 260 || o.ry < -700 || o.rx < -400 || o.rx > W + 400) {
+      // Gone once well out of even a rotated, zoomed-out view (the cross road's furniture waits far out)
+      if (o.ry > H + 450 || o.ry < -1900 - pad || o.rx < W / 2 - 2600 || o.rx > W / 2 + 2600) {
         o.destroy();
         this.things.splice(i, 1);
         continue;
       }
-      if (o.kind && !o.done && !this.finished) {
+      if (o.kind && !o.done && !o.newFrame && !this.finished) {
         const def = KINDS[o.kind];
         if (def.weave) this.weave(o, dt);
         if (def.solid && !o.vx && !o.overtake && o.lane >= 0) this.yieldBehind(o);
@@ -1216,14 +1548,18 @@ export default class GameScene extends Phaser.Scene {
       this.place(o);
     }
     this.place(this.player);
+    // Through a turn the leguna stays upright on screen while the world turns: it reads as the leguna turning
+    this.player.rotation -= this.turnRot;
     this.road.streaks = Phaser.Math.Clamp((this.speed - STREAK_FROM) / (STREAK_FULL - STREAK_FROM), 0, 1);
+
+    // Lean the view into the bend under the leguna, turning with the road like the driver's head (not
+    // through a turn, which has the view)
+    const lean = pivoting ? 0 : Phaser.Math.Clamp(angleAt(this.distance) * LEAN, -MAX_LEAN, MAX_LEAN);
+    this.lean += (lean - this.lean) * Math.min(1, dt * LEAN_RATE);
+    if (pivoting) this.lean = 0;
+    this.updateCamera();
     this.road.draw();
     setEngine(this.speed / BASE_SPEED, this.braking && !this.finished);
-
-    // Lean the view into the bend under the leguna, turning with the road like the driver's head
-    const lean = Phaser.Math.Clamp(angleAt(this.distance) * LEAN, -MAX_LEAN, MAX_LEAN);
-    this.lean += (lean - this.lean) * Math.min(1, dt * LEAN_RATE);
-    this.cameras.main.setRotation(-this.lean);
 
     this.updateHud(progress);
     if (!this.finished && progress >= 1) this.finish();

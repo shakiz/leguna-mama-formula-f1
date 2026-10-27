@@ -8,8 +8,16 @@ const MAX_SLOPE = 0.2; // steeper than ~11° and lanes at the top of the screen 
 
 let table = new Float32Array(2);
 
-// Set pieces at absolute route distances, sorted: { type, d } for points, plus d1 for zones (`to` given)
+// Set pieces at absolute route distances, sorted: { type, d } for points, plus d1 for zones (`to` given),
+// plus any extra fields the stretch gave them (side, text, turn, signal...)
 export let features = [];
+
+// Junctions sit where the road's markings repeat symmetrically around them: lane dashes every 256 px
+// (centred on 128 + 256k) and kerb stripes / pavement joints every 64. Rotated 90° about such a centre,
+// the markings land exactly on the cross road's, so a turn can swap roads without a visible jump.
+// Asad Gate's monument stands at its junction, so it snaps with it.
+const SNAP = { junction: true, asadgate_monument: true };
+const snap = (d) => Math.round((d - 128) / 256) * 256 + 128;
 
 export function buildTrack() {
   const segs = [];
@@ -20,7 +28,9 @@ export function buildTrack() {
     const len = ((STRETCHES[i + 1]?.at ?? 1) - st.at) * ROUTE_LENGTH;
     const start = st.at * ROUTE_LENGTH;
     for (const f of st.features ?? []) {
-      features.push({ type: f.type, d: start + f.at * len, ...(f.to !== undefined && { d1: start + f.to * len }) });
+      const { at, to, ...rest } = f;
+      const d = start + at * len;
+      features.push({ ...rest, d: SNAP[f.type] ? snap(d) : d, ...(to !== undefined && { d1: start + to * len }) });
     }
     for (const [share, to] of st.bends) {
       segs.push([d, d + share * len, pos, to * BEND_SHIFT]);

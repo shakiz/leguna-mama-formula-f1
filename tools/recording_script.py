@@ -92,6 +92,10 @@ EVENTS = {
     'stretch_asadave': (SETPIECE, 'Entering Asad Avenue: waterlogged in the rain.', 'Resigned, half laughing at the water.'),
     'stretch_mohammadpur': (SETPIECE, 'Entering Mohammadpur: the last stretch to the bus stand.',
                             'Announcing the stop like a helper: loud, sing-song.'),
+    'turn_left': (SETPIECE, 'The leguna turns left at the signal at the end of Manik Mia Avenue (the view swings round '
+                  'with it): the helper calls the turn.', 'Shouted direction from the back, quick and sing-song.'),
+    'turn_right': (SETPIECE, 'The leguna turns right at Asad Gate, where a traffic police officer waves the traffic '
+                   'through: the helper calls the turn.', 'Shouted direction from the back, quick and sing-song.'),
     'stretch_*': (SETPIECE, 'Entering {x} on the route.', 'Announcing the stop like a helper: loud, proud, a bit sing-song.'),
     'zone_*': (SETPIECE, 'Driving into the {x}.', 'Resigned, sarcastic commentary.'),
     'speedbreaker': (SETPIECE, 'Going over a speed breaker.', 'Bounced passenger: a grunt, then complaining.'),
@@ -141,6 +145,7 @@ SFX = {
     'tap': 'Light tap / click.',
     'thud': 'Leguna thumping over a speed breaker: two dull thuds, front and back wheels.',
     'whistle': 'Traffic police whistle: two sharp blasts.',
+    'screech': 'Tyres squealing through a sharp turn (a short, wavering squeal).',
     'whoosh': 'Fast whoosh of a vehicle passing very close.',
     'rev': 'Motorbike: a throttle blip ("brrRAAP") and two quick pips on its tiny horn.',
     'ewhine': 'Battery rickshaw ("Tesla"): its thin electric motor whine rising, then a tinny squeeze horn.',
